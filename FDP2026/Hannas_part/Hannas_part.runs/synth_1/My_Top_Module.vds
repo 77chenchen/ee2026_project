@@ -1,0 +1,496 @@
+#-----------------------------------------------------------
+# Vivado v2025.2 (64-bit)
+# SW Build 6299465 on Fri Nov 14 19:35:11 GMT 2025
+# IP Build 6300035 on Fri Nov 14 10:48:45 MST 2025
+# SharedData Build 6298862 on Thu Nov 13 04:50:51 MST 2025
+# Start of session at: Thu Oct  8 14:20:34 2026
+# Process ID         : 33128
+# Current directory  : C:/practice_project/testa_runt/testa_runt.runs/synth_1
+# Command line       : vivado.exe -log My_Top_Module.vds -product Vivado -mode batch -messageDb vivado.pb -notrace -source My_Top_Module.tcl
+# Log file           : C:/practice_project/testa_runt/testa_runt.runs/synth_1/My_Top_Module.vds
+# Journal file       : C:/practice_project/testa_runt/testa_runt.runs/synth_1\vivado.jou
+# Running On         : Hannas_dator
+# Platform           : Windows Server 2016 or Windows 10
+# Operating System   : 26200
+# Processor Detail   : AMD Ryzen 5 7520U with Radeon Graphics         
+# CPU Frequency      : 2795 MHz
+# CPU Physical cores : 4
+# CPU Logical cores  : 8
+# Host memory        : 16363 MB
+# Swap memory        : 16106 MB
+# Total Virtual      : 32469 MB
+# Available Virtual  : 11628 MB
+#-----------------------------------------------------------
+source My_Top_Module.tcl -notrace
+create_project: Time (s): cpu = 00:00:17 ; elapsed = 00:00:15 . Memory (MB): peak = 523.543 ; gain = 218.602
+Command: read_checkpoint -auto_incremental -incremental C:/practice_project/testa_runt/testa_runt.srcs/utils_1/imports/synth_1/My_Top_Module.dcp
+INFO: [Vivado 12-5825] Read reference checkpoint from C:/practice_project/testa_runt/testa_runt.srcs/utils_1/imports/synth_1/My_Top_Module.dcp for incremental synthesis
+INFO: [Vivado 12-7989] Please ensure there are no constraint changes
+Command: synth_design -top My_Top_Module -part xc7a35tcpg236-1
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xc7a35t'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xc7a35t'
+INFO: [Device 21-403] Loading part xc7a35tcpg236-1
+INFO: [Designutils 20-5440] No compile time benefit to using incremental synthesis; A full resynthesis will be run
+INFO: [Designutils 20-4379] Flow is switching to default flow due to incremental criteria not met. If you would like to alter this behaviour and have the flow terminate instead, please set the following parameter config_implementation {autoIncr.Synth.RejectBehavior Terminate}
+INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 2 processes.
+INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
+INFO: [Synth 8-7075] Helper process launched with PID 7216
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:00:11 ; elapsed = 00:00:12 . Memory (MB): peak = 1259.176 ; gain = 542.637
+---------------------------------------------------------------------------------
+INFO: [Synth 8-11241] undeclared symbol 'frame_begin', assumed default net type 'wire' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:44]
+INFO: [Synth 8-11241] undeclared symbol 'sending_pixels', assumed default net type 'wire' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:45]
+INFO: [Synth 8-11241] undeclared symbol 'sample_pixel', assumed default net type 'wire' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:46]
+INFO: [Synth 8-11241] undeclared symbol 'oled_cs', assumed default net type 'wire' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:51]
+INFO: [Synth 8-11241] undeclared symbol 'oled_sdin', assumed default net type 'wire' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:52]
+INFO: [Synth 8-11241] undeclared symbol 'oled_sclk', assumed default net type 'wire' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:53]
+INFO: [Synth 8-11241] undeclared symbol 'oled_d_cn', assumed default net type 'wire' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:54]
+INFO: [Synth 8-11241] undeclared symbol 'oled_resn', assumed default net type 'wire' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:55]
+INFO: [Synth 8-11241] undeclared symbol 'oled_vccen', assumed default net type 'wire' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:56]
+INFO: [Synth 8-11241] undeclared symbol 'oled_pmoden', assumed default net type 'wire' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:57]
+INFO: [Synth 8-11241] undeclared symbol 'mode', assumed default net type 'wire' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:89]
+WARNING: [Synth 8-8895] 'mode' is already implicitly declared on line 89 [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:122]
+INFO: [Synth 8-6157] synthesizing module 'My_Top_Module' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:12]
+INFO: [Synth 8-6157] synthesizing module 'clock_hz' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/clock_hz.v:4]
+INFO: [Synth 8-6155] done synthesizing module 'clock_hz' (0#1) [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/clock_hz.v:4]
+INFO: [Synth 8-6157] synthesizing module 'Oled_Display' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/Oled_Display.v:34]
+INFO: [Synth 8-226] default block is never used [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/Oled_Display.v:120]
+INFO: [Synth 8-226] default block is never used [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/Oled_Display.v:195]
+WARNING: [Synth 8-693] zero replication count - replication ignored [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/Oled_Display.v:343]
+INFO: [Synth 8-6155] done synthesizing module 'Oled_Display' (0#1) [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/Oled_Display.v:34]
+INFO: [Synth 8-6157] synthesizing module 'debounce' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/debounce.v:3]
+INFO: [Synth 8-6155] done synthesizing module 'debounce' (0#1) [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/debounce.v:3]
+INFO: [Synth 8-6157] synthesizing module 'task1' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/task1.v:3]
+INFO: [Synth 8-6155] done synthesizing module 'task1' (0#1) [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/task1.v:3]
+INFO: [Synth 8-6157] synthesizing module 'task2' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/task2.v:3]
+INFO: [Synth 8-6155] done synthesizing module 'task2' (0#1) [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/task2.v:3]
+INFO: [Synth 8-6157] synthesizing module 'task3' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/task3.v:3]
+INFO: [Synth 8-6155] done synthesizing module 'task3' (0#1) [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/task3.v:3]
+INFO: [Synth 8-6157] synthesizing module 'calculator' [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/calculator.v:3]
+INFO: [Synth 8-155] case statement is not full and has no default [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/calculator.v:65]
+INFO: [Synth 8-155] case statement is not full and has no default [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/calculator.v:65]
+INFO: [Synth 8-155] case statement is not full and has no default [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/calculator.v:65]
+INFO: [Synth 8-155] case statement is not full and has no default [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/calculator.v:65]
+INFO: [Synth 8-155] case statement is not full and has no default [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/calculator.v:65]
+INFO: [Synth 8-155] case statement is not full and has no default [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/calculator.v:65]
+INFO: [Synth 8-155] case statement is not full and has no default [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/calculator.v:65]
+INFO: [Synth 8-155] case statement is not full and has no default [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/calculator.v:65]
+INFO: [Synth 8-155] case statement is not full and has no default [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/calculator.v:65]
+INFO: [Synth 8-6155] done synthesizing module 'calculator' (0#1) [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/calculator.v:3]
+INFO: [Synth 8-6155] done synthesizing module 'My_Top_Module' (0#1) [C:/practice_project/testa_runt/testa_runt.srcs/sources_1/new/My_Top_Module.v:12]
+WARNING: [Synth 8-7129] Port SW15 in module calculator is either unconnected or has no load
+WARNING: [Synth 8-7129] Port JB[2] in module My_Top_Module is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[13] in module My_Top_Module is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[12] in module My_Top_Module is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[11] in module My_Top_Module is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[10] in module My_Top_Module is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[9] in module My_Top_Module is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[8] in module My_Top_Module is either unconnected or has no load
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:00:15 ; elapsed = 00:00:17 . Memory (MB): peak = 1392.574 ; gain = 676.035
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:15 ; elapsed = 00:00:17 . Memory (MB): peak = 1392.574 ; gain = 676.035
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:15 ; elapsed = 00:00:17 . Memory (MB): peak = 1392.574 ; gain = 676.035
+---------------------------------------------------------------------------------
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.067 . Memory (MB): peak = 1392.574 ; gain = 0.000
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Parsing XDC File [C:/practice_project/testa_runt/testa_runt.srcs/constrs_1/new/Basys3_Master.xdc]
+Finished Parsing XDC File [C:/practice_project/testa_runt/testa_runt.srcs/constrs_1/new/Basys3_Master.xdc]
+INFO: [Project 1-236] Implementation specific constraints were found while reading constraint file [C:/practice_project/testa_runt/testa_runt.srcs/constrs_1/new/Basys3_Master.xdc]. These constraints will be ignored for synthesis but will be used in implementation. Impacted constraints are listed in the file [.Xil/My_Top_Module_propImpl.xdc].
+Resolution: To avoid this warning, move constraints listed in [.Xil/My_Top_Module_propImpl.xdc] to another XDC file and exclude this new file from synthesis with the used_in_synthesis property (File Properties dialog in GUI) and re-run elaboration/synthesis.
+Completed Processing XDC Constraints
+
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.003 . Memory (MB): peak = 1462.312 ; gain = 0.000
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Constraint Validation Runtime : Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.034 . Memory (MB): peak = 1462.312 ; gain = 0.000
+INFO: [Designutils 20-5440] No compile time benefit to using incremental synthesis; A full resynthesis will be run
+INFO: [Designutils 20-4379] Flow is switching to default flow due to incremental criteria not met. If you would like to alter this behaviour and have the flow terminate instead, please set the following parameter config_implementation {autoIncr.Synth.RejectBehavior Terminate}
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:00:32 ; elapsed = 00:00:36 . Memory (MB): peak = 1462.312 ; gain = 745.773
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xc7a35tcpg236-1
+---------------------------------------------------------------------------------
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:32 ; elapsed = 00:00:36 . Memory (MB): peak = 1462.312 ; gain = 745.773
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying 'set_property' XDC Constraints
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished applying 'set_property' XDC Constraints : Time (s): cpu = 00:00:32 ; elapsed = 00:00:37 . Memory (MB): peak = 1462.312 ; gain = 745.773
+---------------------------------------------------------------------------------
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'Oled_Display'
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'calculator'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                 PowerUp | 00000000100000000000000000000000 |                            00000
+                   Reset | 00000000000100000000000000000000 |                            00001
+            ReleaseReset | 00000000000000000000100000000000 |                            00011
+            EnableDriver | 00000000000000000001000000000000 |                            00010
+              DisplayOff | 00000000000000000100000000000000 |                            00110
+   SetRemapDisplayFormat | 00000100000000000000000000000000 |                            00111
+            SetStartLine | 00001000000000000000000000000000 |                            00101
+               SetOffset | 10000000000000000000000000000000 |                            00100
+        SetNormalDisplay | 00000000000000000000000010000000 |                            01100
+       SetMultiplexRatio | 00000000000000000000000000100000 |                            01101
+  SetMasterConfiguration | 00000000000000000000000001000000 |                            01111
+        DisablePowerSave | 00000000000000000000000000000100 |                            01110
+          SetPhaseAdjust | 00000000000000000000000000001000 |                            01010
+         SetDisplayClock | 00000000001000000000000000000000 |                            01011
+     SetSecondPrechargeA | 00000000010000000000000000000000 |                            01001
+     SetSecondPrechargeB | 01000000000000000000000000000000 |                            01000
+     SetSecondPrechargeC | 00000010000000000000000000000000 |                            11000
+       SetPrechargeLevel | 00000001000000000000000000000000 |                            11001
+                SetVCOMH | 00000000000000010000000000000000 |                            11011
+        SetMasterCurrent | 00000000000000100000000000000000 |                            11010
+            SetContrastA | 00000000000001000000000000000000 |                            11110
+            SetContrastB | 00100000000000000000000000000000 |                            11111
+            SetContrastC | 00000000000000000000000000000001 |                            11101
+        DisableScrolling | 00000000000000000000000000000010 |                            11100
+             ClearScreen | 00000000000000000000000000010000 |                            10100
+                   VccEn | 00010000000000000000000000000000 |                            10101
+               DisplayOn | 00000000000010000000000000000000 |                            10111
+        PrepareNextFrame | 00000000000000001000000000000000 |                            10110
+           SetColAddress | 00000000000000000000010000000000 |                            10010
+           SetRowAddress | 00000000000000000000000100000000 |                            10011
+           WaitNextFrame | 00000000000000000000001000000000 |                            10001
+               SendPixel | 00000000000000000010000000000000 |                            10000
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'one-hot' in module 'Oled_Display'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                  iSTATE |                               00 |                               00
+                 iSTATE0 |                               01 |                               01
+                 iSTATE1 |                               10 |                               10
+                 iSTATE2 |                               11 |                               11
+*
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'sequential' in module 'calculator'
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:35 ; elapsed = 00:00:39 . Memory (MB): peak = 1462.312 ; gain = 745.773
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input   32 Bit       Adders := 7     
+	   2 Input   23 Bit       Adders := 1     
+	   3 Input   16 Bit       Adders := 1     
+	   2 Input   16 Bit       Adders := 5     
+	   3 Input    9 Bit       Adders := 1     
+	   2 Input    8 Bit       Adders := 3     
+	   2 Input    7 Bit       Adders := 1     
+	   2 Input    6 Bit       Adders := 1     
+	   2 Input    2 Bit       Adders := 1     
++---Registers : 
+	               40 Bit    Registers := 1     
+	               23 Bit    Registers := 1     
+	               16 Bit    Registers := 1     
+	                8 Bit    Registers := 3     
+	                7 Bit    Registers := 1     
+	                6 Bit    Registers := 1     
+	                3 Bit    Registers := 1     
+	                2 Bit    Registers := 2     
+	                1 Bit    Registers := 15    
++---Multipliers : 
+	              32x32  Multipliers := 4     
++---Muxes : 
+	   2 Input   40 Bit        Muxes := 3     
+	  32 Input   32 Bit        Muxes := 1     
+	   2 Input   32 Bit        Muxes := 2     
+	  31 Input   20 Bit        Muxes := 1     
+	   7 Input   16 Bit        Muxes := 1     
+	   4 Input   16 Bit        Muxes := 5     
+	   2 Input   16 Bit        Muxes := 5     
+	   4 Input   11 Bit        Muxes := 1     
+	   2 Input   11 Bit        Muxes := 6     
+	   2 Input    8 Bit        Muxes := 5     
+	  31 Input    6 Bit        Muxes := 1     
+	   2 Input    6 Bit        Muxes := 1     
+	   2 Input    5 Bit        Muxes := 1     
+	  32 Input    5 Bit        Muxes := 1     
+	   4 Input    3 Bit        Muxes := 1     
+	   2 Input    2 Bit        Muxes := 4     
+	   4 Input    2 Bit        Muxes := 1     
+	   2 Input    1 Bit        Muxes := 31    
+	  10 Input    1 Bit        Muxes := 63    
+	   3 Input    1 Bit        Muxes := 14    
+	   5 Input    1 Bit        Muxes := 2     
+	   4 Input    1 Bit        Muxes := 4     
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 90 (col length:60)
+BRAMs: 100 (col length: RAMB18 60 RAMB36 30)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+DSP Report: Generating DSP oled_data3, operation Mode is: A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: Generating DSP oled_data3, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+DSP Report: operator oled_data3 is absorbed into DSP oled_data3.
+WARNING: [Synth 8-7129] Port SW15 in module calculator is either unconnected or has no load
+WARNING: [Synth 8-7129] Port HZ[31] in module clock_hz is either unconnected or has no load
+WARNING: [Synth 8-7129] Port JB[2] in module My_Top_Module is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[13] in module My_Top_Module is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[12] in module My_Top_Module is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[11] in module My_Top_Module is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[10] in module My_Top_Module is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[9] in module My_Top_Module is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[8] in module My_Top_Module is either unconnected or has no load
+---------------------------------------------------------------------------------
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:01:23 ; elapsed = 00:01:31 . Memory (MB): peak = 1829.512 ; gain = 1112.973
+---------------------------------------------------------------------------------
+ Sort Area is  oled_data3_0 : 0 0 : 3101 5879 : Used 1 time 0
+ Sort Area is  oled_data3_0 : 0 1 : 2778 5879 : Used 1 time 0
+ Sort Area is  oled_data3_6 : 0 0 : 3101 5879 : Used 1 time 0
+ Sort Area is  oled_data3_6 : 0 1 : 2778 5879 : Used 1 time 0
+ Sort Area is  oled_data3_8 : 0 0 : 3101 5879 : Used 1 time 0
+ Sort Area is  oled_data3_8 : 0 1 : 2778 5879 : Used 1 time 0
+ Sort Area is  oled_data3_a : 0 0 : 3101 5879 : Used 1 time 0
+ Sort Area is  oled_data3_a : 0 1 : 2778 5879 : Used 1 time 0
+ Sort Area is  oled_data3_3 : 0 0 : 2759 5418 : Used 1 time 0
+ Sort Area is  oled_data3_3 : 0 1 : 2659 5418 : Used 1 time 0
+ Sort Area is  oled_data3_7 : 0 0 : 2759 5418 : Used 1 time 0
+ Sort Area is  oled_data3_7 : 0 1 : 2659 5418 : Used 1 time 0
+ Sort Area is  oled_data3_9 : 0 0 : 2759 5418 : Used 1 time 0
+ Sort Area is  oled_data3_9 : 0 1 : 2659 5418 : Used 1 time 0
+ Sort Area is  oled_data3_b : 0 0 : 2759 5418 : Used 1 time 0
+ Sort Area is  oled_data3_b : 0 1 : 2659 5418 : Used 1 time 0
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+
+DSP: Preliminary Mapping Report (see note below. The ' indicates corresponding REG is set)
++------------+----------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|Module Name | DSP Mapping    | A Size | B Size | C Size | D Size | P Size | AREG | BREG | CREG | DREG | ADREG | MREG | PREG | 
++------------+----------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|task1       | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|task1       | (PCIN>>17)+A*B | 16     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|task1       | A*B            | 18     | 18     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|task1       | (PCIN>>17)+A*B | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|task1       | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|task1       | (PCIN>>17)+A*B | 16     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|task1       | A*B            | 18     | 18     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|task1       | (PCIN>>17)+A*B | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|calculator  | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|calculator  | (PCIN>>17)+A*B | 16     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|calculator  | A*B            | 18     | 18     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|calculator  | (PCIN>>17)+A*B | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|calculator  | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|calculator  | (PCIN>>17)+A*B | 16     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|calculator  | A*B            | 18     | 18     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|calculator  | (PCIN>>17)+A*B | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
++------------+----------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+
+Note: The table above is a preliminary report that shows the DSPs inferred at the current stage of the synthesis flow. Some DSP may be reimplemented as non DSP primitives later in the synthesis flow. Multiple instantiated DSPs are reported only once.
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying XDC Timing Constraints
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Applying XDC Timing Constraints : Time (s): cpu = 00:01:39 ; elapsed = 00:01:48 . Memory (MB): peak = 1829.512 ; gain = 1112.973
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Timing Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Timing Optimization : Time (s): cpu = 00:02:15 ; elapsed = 00:02:25 . Memory (MB): peak = 1857.168 ; gain = 1140.629
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Technology Mapping
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Technology Mapping : Time (s): cpu = 00:02:18 ; elapsed = 00:02:29 . Memory (MB): peak = 1867.246 ; gain = 1150.707
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished IO Insertion : Time (s): cpu = 00:02:29 ; elapsed = 00:02:40 . Memory (MB): peak = 1968.660 ; gain = 1252.121
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Instances
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Instances : Time (s): cpu = 00:02:29 ; elapsed = 00:02:40 . Memory (MB): peak = 1968.660 ; gain = 1252.121
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Rebuilding User Hierarchy
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:02:29 ; elapsed = 00:02:41 . Memory (MB): peak = 1968.660 ; gain = 1252.121
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Ports
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Ports : Time (s): cpu = 00:02:29 ; elapsed = 00:02:41 . Memory (MB): peak = 1968.660 ; gain = 1252.121
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:02:29 ; elapsed = 00:02:41 . Memory (MB): peak = 1968.660 ; gain = 1252.121
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Nets
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Nets : Time (s): cpu = 00:02:29 ; elapsed = 00:02:41 . Memory (MB): peak = 1968.660 ; gain = 1252.121
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Writing Synthesis Report
+---------------------------------------------------------------------------------
+
+DSP Final Report (the ' indicates corresponding REG is set)
++------------+--------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|Module Name | DSP Mapping  | A Size | B Size | C Size | D Size | P Size | AREG | BREG | CREG | DREG | ADREG | MREG | PREG | 
++------------+--------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|calculator  | A*B          | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|calculator  | A*B          | 17     | 17     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|calculator  | PCIN>>17+A*B | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|calculator  | A*B          | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|calculator  | A*B          | 17     | 17     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|calculator  | PCIN>>17+A*B | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|task1       | A*B          | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|task1       | A*B          | 17     | 17     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|task1       | PCIN>>17+A*B | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|task1       | A*B          | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|task1       | A*B          | 17     | 17     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|task1       | PCIN>>17+A*B | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
++------------+--------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+
+
+Report BlackBoxes: 
++-+--------------+----------+
+| |BlackBox name |Instances |
++-+--------------+----------+
++-+--------------+----------+
+
+Report Cell Usage: 
++------+--------+------+
+|      |Cell    |Count |
++------+--------+------+
+|1     |BUFG    |     2|
+|2     |CARRY4  |   343|
+|3     |DSP48E1 |    12|
+|4     |LUT1    |   214|
+|5     |LUT2    |   685|
+|6     |LUT3    |   278|
+|7     |LUT4    |   182|
+|8     |LUT5    |   196|
+|9     |LUT6    |   623|
+|10    |FDRE    |   317|
+|11    |FDSE    |    40|
+|12    |IBUF    |    16|
+|13    |OBUF    |     7|
+|14    |OBUFT   |     1|
++------+--------+------+
+---------------------------------------------------------------------------------
+Finished Writing Synthesis Report : Time (s): cpu = 00:02:30 ; elapsed = 00:02:41 . Memory (MB): peak = 1968.660 ; gain = 1252.121
+---------------------------------------------------------------------------------
+Synthesis finished with 0 errors, 0 critical warnings and 9 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:02:10 ; elapsed = 00:02:36 . Memory (MB): peak = 1968.660 ; gain = 1182.383
+Synthesis Optimization Complete : Time (s): cpu = 00:02:30 ; elapsed = 00:02:42 . Memory (MB): peak = 1968.660 ; gain = 1252.121
+INFO: [Project 1-571] Translating synthesized netlist
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.072 . Memory (MB): peak = 1979.891 ; gain = 0.000
+INFO: [Netlist 29-17] Analyzing 355 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-570] Preparing netlist for logic optimization
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.003 . Memory (MB): peak = 1985.555 ; gain = 0.000
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Synth Design complete | Checksum: a7336def
+INFO: [Common 17-83] Releasing license: Synthesis
+63 Infos, 19 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:02:42 ; elapsed = 00:02:57 . Memory (MB): peak = 1985.555 ; gain = 1454.645
+Write ShapeDB Complete: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.020 . Memory (MB): peak = 1985.555 ; gain = 0.000
+INFO: [Common 17-1381] The checkpoint 'C:/practice_project/testa_runt/testa_runt.runs/synth_1/My_Top_Module.dcp' has been generated.
+INFO: [Vivado 12-24828] Executing command : report_utilization -file My_Top_Module_utilization_synth.rpt -pb My_Top_Module_utilization_synth.pb
+INFO: [Common 17-206] Exiting Vivado at Thu Oct  8 14:23:55 2026...
