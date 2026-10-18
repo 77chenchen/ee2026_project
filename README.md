@@ -37,10 +37,6 @@ The active Vivado project is `FDP2026/FDP2026.xpr`. The active top module is
   left-click recenter and right-click view reset.
 - Input-stage OLED guidance and signed coefficient preview.
 
-The later proposal extensions (cubic/trigonometric graphs, auto-fit and
-advanced root solvers) are intentionally not part of this integration
-checkpoint.
-
 ## Hardware controls
 
 ### Main menu
