@@ -6,6 +6,9 @@ module graph_controller_tb;
     reg btnC = 0, btnU = 0, btnD = 0, btnL = 0, btnR = 0;
     reg sw0 = 0, sw12 = 0, sw13 = 0, sw14 = 0;
     reg signed [7:0] input_value = 0;
+    reg mouse_zoom_in=0,mouse_zoom_out=0,mouse_recenter=0,mouse_reset_view=0;
+    reg [6:0] mouse_screen_x=48;
+    reg [5:0] mouse_screen_y=32;
     wire [1:0] graph_count;
     wire graph1_type, graph2_type;
     wire signed [7:0] a1,b1,c1,a2,b2,c2;
@@ -26,6 +29,9 @@ module graph_controller_tb;
         .btnL_pressed(btnL), .btnR_pressed(btnR),
         .sw0(sw0), .sw12_cursor(sw12), .sw13_zoom(sw13), .sw14(sw14),
         .input_value(input_value),
+        .mouse_zoom_in(mouse_zoom_in), .mouse_zoom_out(mouse_zoom_out),
+        .mouse_recenter(mouse_recenter), .mouse_reset_view(mouse_reset_view),
+        .mouse_screen_x(mouse_screen_x), .mouse_screen_y(mouse_screen_y),
         .graph_count(graph_count), .graph1_type(graph1_type), .graph2_type(graph2_type),
         .a1(a1),.b1(b1),.c1(c1),.a2(a2),.b2(b2),.c2(c2),
         .state(state), .current_graph(current_graph), .ready(ready), .draw(draw),
@@ -47,6 +53,19 @@ module graph_controller_tb;
     task pulse_r;
         begin btnR=1; @(posedge clk); #1; btnR=0; @(posedge clk); #1; end
     endtask
+    task pulse_mouse_in;
+        begin mouse_zoom_in=1; @(posedge clk); #1; mouse_zoom_in=0; @(posedge clk); #1; end
+    endtask
+    task pulse_mouse_out;
+        begin mouse_zoom_out=1; @(posedge clk); #1; mouse_zoom_out=0; @(posedge clk); #1; end
+    endtask
+    task pulse_mouse_recenter;
+        begin mouse_recenter=1; @(posedge clk); #1; mouse_recenter=0; @(posedge clk); #1; end
+    endtask
+    task pulse_mouse_reset;
+        begin mouse_reset_view=1; @(posedge clk); #1; mouse_reset_view=0; @(posedge clk); #1; end
+    endtask
+
     initial begin
         reset=1; repeat(2) @(posedge clk); #1; reset=0;
 
@@ -102,6 +121,48 @@ module graph_controller_tb;
         if (cursor_x != 24) begin
             $display("FAIL scale-1 cursor step x=%0d",cursor_x);
             $finish_and_return(1);
+        end
+
+        // Mouse zoom has priority over simultaneous button modes.
+        sw12=1; sw13=1; mouse_screen_x=48; mouse_screen_y=32;
+        mouse_zoom_out=0; pulse_mouse_in();
+        if (scale != 2 || cursor_x != 24) begin
+            $display("FAIL mouse zoom priority scale=%0d cursor=%0d",scale,cursor_x);
+            $finish_and_return(1);
+        end
+        pulse_mouse_out();
+        if (scale != 1) begin
+            $display("FAIL mouse zoom-out scale=%0d",scale); $finish_and_return(1);
+        end
+        mouse_zoom_out=0;
+
+        // Recenter to the clicked position, clamped at both axes.
+        mouse_screen_x=20; mouse_screen_y=15; pulse_mouse_recenter();
+        if (origin_x != 80 || origin_y != 49) begin
+            $display("FAIL mouse recenter origin=(%0d,%0d)",origin_x,origin_y);
+            $finish_and_return(1);
+        end
+        mouse_screen_x=2; mouse_screen_y=60; pulse_mouse_recenter();
+        if (origin_x != 87 || origin_y != 21) begin
+            $display("FAIL mouse recenter clamp origin=(%0d,%0d)",origin_x,origin_y);
+            $finish_and_return(1);
+        end
+        mouse_screen_x=95; mouse_screen_y=0; pulse_mouse_recenter();
+        if (origin_x != 40 || origin_y != 53) begin
+            $display("FAIL mouse recenter max clamp origin=(%0d,%0d)",origin_x,origin_y);
+            $finish_and_return(1);
+        end
+        // Reset has priority over recenter and restores the default view.
+        mouse_screen_x=80; mouse_screen_y=50;
+        mouse_recenter=1; pulse_mouse_reset();
+        if (origin_x != 16 || origin_y != 14 || scale != 4) begin
+            $display("FAIL mouse reset priority origin=(%0d,%0d) scale=%0d",origin_x,origin_y,scale);
+            $finish_and_return(1);
+        end
+        // Legacy button control remains valid after mouse operations.
+        sw12=0; sw13=0; pulse_r();
+        if (origin_x != 8 || origin_y != 8) begin
+            $display("FAIL legacy pan after mouse origin_x=%0d",origin_x); $finish_and_return(1);
         end
 
         // Parallel lines: y=x and y=x+1.

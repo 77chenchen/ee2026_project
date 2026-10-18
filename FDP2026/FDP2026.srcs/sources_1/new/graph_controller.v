@@ -15,6 +15,12 @@ module graph_controller (
     input  wire sw13_zoom,
     input  wire sw14,
     input  wire signed [7:0] input_value,
+    input  wire        mouse_zoom_in,
+    input  wire        mouse_zoom_out,
+    input  wire        mouse_recenter,
+    input  wire        mouse_reset_view,
+    input  wire [6:0]  mouse_screen_x,
+    input  wire [5:0]  mouse_screen_y,
 
     output reg  [1:0] graph_count,
     output reg        graph1_type,
@@ -66,6 +72,11 @@ module graph_controller (
 
     reg sw14_previous;
     wire sw14_rising = sw14 && !sw14_previous;
+    wire signed [8:0] recenter_x = $signed({2'b00, origin_x}) + $signed(9'sd48) -
+                                   $signed({3'b000, mouse_screen_x});
+    wire signed [8:0] recenter_y = $signed({3'b000, origin_y}) + $signed(9'sd32) -
+                                   $signed({2'b00, mouse_screen_y});
+
     integer coefficient_difference;
     integer slope_difference;
     integer x_calculated_q4;
@@ -202,7 +213,29 @@ module graph_controller (
                 end
 
                 VIEW_GRAPH: begin
-                    if (sw12_cursor) begin
+                    if (mouse_reset_view) begin
+                        scale_px_per_unit <= 4'd4;
+                        origin_x <= DEFAULT_ORIGIN_X;
+                        origin_y <= DEFAULT_ORIGIN_Y;
+                    end else if (mouse_recenter) begin
+                        if (recenter_x < $signed({2'b0, MIN_ORIGIN_X}))
+                            origin_x <= MIN_ORIGIN_X;
+                        else if (recenter_x > $signed({2'b0, MAX_ORIGIN_X}))
+                            origin_x <= MAX_ORIGIN_X;
+                        else
+                            origin_x <= recenter_x[6:0];
+
+                        if (recenter_y < $signed({3'b0, MIN_ORIGIN_Y}))
+                            origin_y <= MIN_ORIGIN_Y;
+                        else if (recenter_y > $signed({3'b0, MAX_ORIGIN_Y}))
+                            origin_y <= MAX_ORIGIN_Y;
+                        else
+                            origin_y <= recenter_y[5:0];
+                    end else if (mouse_zoom_in && (scale_px_per_unit < 8)) begin
+                        scale_px_per_unit <= scale_px_per_unit << 1;
+                    end else if (mouse_zoom_out && (scale_px_per_unit > 1)) begin
+                        scale_px_per_unit <= scale_px_per_unit >> 1;
+                    end else if (sw12_cursor) begin
                         // SW12 selects cursor movement. SW13 selects zoom mode.
                         // At the 1 px/unit zoom, half a unit would round to
                         // zero in one direction.  Use a full-unit step there.

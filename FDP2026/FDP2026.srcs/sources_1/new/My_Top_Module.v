@@ -4,7 +4,8 @@
 // BTNL enters the calculator, BTND enters Graph Mode and SW15 returns home.
 module My_Top_Module #(
     parameter integer BUTTON_COUNTER_BITS = 19,
-    parameter integer SWITCH_COUNTER_BITS = 18
+    parameter integer SWITCH_COUNTER_BITS = 18,
+    parameter integer ENABLE_HARDWARE_MOUSE = 1
 ) (
     input  wire        clk,
     input  wire [15:0] sw,
@@ -13,6 +14,8 @@ module My_Top_Module #(
     input  wire        btnL,
     input  wire        btnR,
     input  wire        btnC,
+    inout wire        PS2Clk,
+    inout wire        PS2Data,
     output wire [15:0] led,
     output wire [7:0]  JA
 );
@@ -34,8 +37,9 @@ module My_Top_Module #(
     button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_r(.clk(clk),.reset(system_reset),.button_in(btnR),.pressed(btnR_pressed));
     button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_c(.clk(clk),.reset(system_reset),.button_in(btnC),.pressed(btnC_pressed));
 
-    wire sw12_level,sw13_level,sw14_level,sw15_level;
-    wire unused_r12,unused_f12,unused_r13,unused_f13,unused_r14,unused_f14,unused_r15,unused_f15;
+    wire sw11_level,sw12_level,sw13_level,sw14_level,sw15_level;
+    wire unused_r11,unused_f11,unused_r12,unused_f12,unused_r13,unused_f13,unused_r14,unused_f14,unused_r15,unused_f15;
+    switch_sync #(.COUNTER_BITS(SWITCH_COUNTER_BITS)) ss11(.clk(clk),.reset(system_reset),.async_in(sw[11]),.level(sw11_level),.rising(unused_r11),.falling(unused_f11));
     switch_sync #(.COUNTER_BITS(SWITCH_COUNTER_BITS)) ss12(.clk(clk),.reset(system_reset),.async_in(sw[12]),.level(sw12_level),.rising(unused_r12),.falling(unused_f12));
     switch_sync #(.COUNTER_BITS(SWITCH_COUNTER_BITS)) ss13(.clk(clk),.reset(system_reset),.async_in(sw[13]),.level(sw13_level),.rising(unused_r13),.falling(unused_f13));
     switch_sync #(.COUNTER_BITS(SWITCH_COUNTER_BITS)) ss14(.clk(clk),.reset(system_reset),.async_in(sw[14]),.level(sw14_level),.rising(unused_r14),.falling(unused_f14));
@@ -95,6 +99,19 @@ module My_Top_Module #(
     wire [2:0] graph_status;
     wire intersection_valid;
     wire signed [15:0] intersection_x_q4,intersection_y_q4;
+    wire mouse_setup_done;
+    wire mouse_zoom_in,mouse_zoom_out,mouse_recenter,mouse_reset_view;
+    wire [11:0] mouse_xpos,mouse_ypos;
+    wire [3:0] mouse_zpos;
+    wire mouse_left,mouse_middle,mouse_right,mouse_new_event;
+    wire [11:0] mouse_setup_value;
+    wire mouse_setup_setx,mouse_setup_sety,mouse_setup_setmax_x,mouse_setup_setmax_y;
+    wire [6:0] mouse_screen_x;
+    wire [5:0] mouse_screen_y;
+    wire signed [15:0] mouse_cursor_x_q4,mouse_cursor_y_q4;
+    wire mouse_graph_active=graph_active&&(graph_state==3'd7);
+    wire mouse_control_ready=sw11_level&&mouse_setup_done;
+
     graph_controller graph_core(
         .clk(clk),.reset(system_reset||!graph_active),
         .btnC_pressed(graph_active&&btnC_pressed),.btnU_pressed(graph_active&&btnU_pressed),
@@ -102,6 +119,11 @@ module My_Top_Module #(
         .btnR_pressed(graph_active&&btnR_pressed),.sw0(sw[0]),
         .sw12_cursor(sw12_level),.sw13_zoom(sw13_level),.sw14(sw14_level),
         .input_value(signed_switch_value),
+        .mouse_zoom_in(mouse_control_ready&&mouse_zoom_in),
+        .mouse_zoom_out(mouse_control_ready&&mouse_zoom_out),
+        .mouse_recenter(mouse_control_ready&&mouse_recenter),
+        .mouse_reset_view(mouse_control_ready&&mouse_reset_view),
+        .mouse_screen_x(mouse_screen_x),.mouse_screen_y(mouse_screen_y),
         .graph_count(graph_count),
         .graph1_type(graph1_type),.graph2_type(graph2_type),
         .a1(a1),.b1(b1),.c1(c1),.a2(a2),.b2(b2),.c2(c2),
@@ -111,6 +133,49 @@ module My_Top_Module #(
         .graph_status(graph_status),.intersection_valid(intersection_valid),
         .intersection_x_q4(intersection_x_q4),.intersection_y_q4(intersection_y_q4)
     );
+
+    mouse_graph_adapter mouse_adapter(
+        .clk(clk),.reset(system_reset),
+        .mouse_enable(sw11_level),.view_graph(mouse_graph_active),
+        .new_event(mouse_new_event),.xpos(mouse_xpos),.ypos(mouse_ypos),
+        .zpos(mouse_zpos),.left(mouse_left),.right(mouse_right),
+        .scale(graph_scale),.origin_x(graph_origin_x),.origin_y(graph_origin_y),
+        .setup_done(mouse_setup_done),
+        .setup_value(mouse_setup_value),
+        .setup_setx(mouse_setup_setx),.setup_sety(mouse_setup_sety),
+        .setup_setmax_x(mouse_setup_setmax_x),.setup_setmax_y(mouse_setup_setmax_y),
+        .mouse_zoom_in(mouse_zoom_in),.mouse_zoom_out(mouse_zoom_out),
+        .mouse_recenter(mouse_recenter),.mouse_reset_view(mouse_reset_view),
+        .mouse_screen_x(mouse_screen_x),.mouse_screen_y(mouse_screen_y),
+        .cursor_x_q4(mouse_cursor_x_q4),.cursor_y_q4(mouse_cursor_y_q4)
+    );
+
+    generate
+        if (ENABLE_HARDWARE_MOUSE != 0) begin : g_hardware_mouse
+            MouseCtl #(
+                .SYSCLK_FREQUENCY_HZ(100000000)
+            ) mouse_ctl (
+                .clk(clk),.rst(system_reset),
+                .xpos(mouse_xpos),.ypos(mouse_ypos),.zpos(mouse_zpos),
+                .left(mouse_left),.middle(mouse_middle),.right(mouse_right),
+                .new_event(mouse_new_event),
+                .value(mouse_setup_value),
+                .setx(mouse_setup_setx),.sety(mouse_setup_sety),
+                .setmax_x(mouse_setup_setmax_x),.setmax_y(mouse_setup_setmax_y),
+                .ps2_clk(PS2Clk),.ps2_data(PS2Data)
+            );
+        end else begin : g_no_hardware_mouse
+            assign mouse_xpos=12'd48;
+            assign mouse_ypos=12'd32;
+            assign mouse_zpos=4'd0;
+            assign mouse_left=1'b0;
+            assign mouse_middle=1'b0;
+            assign mouse_right=1'b0;
+            assign mouse_new_event=1'b0;
+            assign PS2Clk=1'bz;
+            assign PS2Data=1'bz;
+        end
+    endgenerate
 
     wire [12:0] pixel_index;
     wire frame_begin,sending_pixels,sample_pixel;
@@ -158,8 +223,9 @@ module My_Top_Module #(
             frame_graph_status<=graph_status; frame_intersection_valid<=intersection_valid;
             frame_ix<=intersection_x_q4; frame_iy<=intersection_y_q4; frame_scale<=graph_scale;
             frame_origin_x<=graph_origin_x; frame_origin_y<=graph_origin_y;
-            frame_cursor_enable<=graph_active&&sw12_level;
-            frame_cursor_x<=cursor_x_q4; frame_cursor_y<=cursor_y_q4;
+            frame_cursor_enable<=graph_active&&(sw11_level||sw12_level);
+            frame_cursor_x<=sw11_level?mouse_cursor_x_q4:cursor_x_q4;
+            frame_cursor_y<=sw11_level?mouse_cursor_y_q4:cursor_y_q4;
         end
     end
 
@@ -207,6 +273,8 @@ module My_Top_Module #(
     reg [15:0] led_value;
     always @* begin
         led_value=16'd0;
+        led_value[13]=sw11_level;
+        led_value[14]=sw11_level&&mouse_setup_done;
         if(mode==MODE_MENU) led_value[0]=1'b1;
         else if(mode==MODE_CALC) begin
             led_value[1]=1'b1; led_value[4:2]=calc_state;

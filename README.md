@@ -33,6 +33,8 @@ The active Vivado project is `FDP2026/FDP2026.xpr`. The active top module is
 - Exact intersection for two linear functions.
 - `PAR`, `SAME`, `OUT` and `ERR` status overlays.
 - Zoom, pan and movable coordinate cursor.
+- Optional Graph Mode PS/2 mouse control with crosshair, wheel zoom,
+  left-click recenter and right-click view reset.
 - Input-stage OLED guidance and signed coefficient preview.
 
 The later proposal extensions (cubic/trigonometric graphs, auto-fit and
@@ -107,6 +109,30 @@ Graph view controls:
 | `SW12=0, SW13=1` | `BTNL/BTNR` | Pan horizontally |
 | `SW12=1` | `BTNU/D/L/R` | Move the cyan coordinate cursor |
 
+### PS/2 mouse control
+
+Connect a PS/2 mouse to the Basys3 PS/2 connector:
+
+| Signal | Pin |
+| --- | --- |
+| `PS2Clk` | `C17` |
+| `PS2Data` | `B17` |
+
+Raise `SW11` in Graph Mode after the graph reaches `VIEW_GRAPH` (`DRAW`) to
+enable mouse control. `LED13` follows `SW11`, and `LED14` turns on after the
+driver finishes configuring `MouseCtl`.
+
+| Mouse input | Action |
+| --- | --- |
+| Move | Move the cyan crosshair and X/Y coordinate readout. |
+| Wheel up / down | Zoom in / out through the existing `1, 2, 4, 8` scales. |
+| Left click | Center the clicked graph coordinate at screen `(48,32)`. |
+| Right click | Reset the view to scale 4 and origin `(48,32)`. |
+
+Mouse actions are edge-triggered and occur only in Graph Mode's `VIEW_GRAPH`
+state. They have priority over the buttons, but `SW12` button-cursor control
+remains available when `SW11` is off (or before mouse setup completes).
+
 Graph status meanings:
 
 | Status | Meaning |
@@ -175,11 +201,15 @@ The suite checks:
 - calculator/menu OLED screens;
 - graph input FSM, linear intersection, parallel/identical/off-screen cases;
 - graph line/quadratic rendering, marker, status, pan, zoom and cursor;
+- mouse coordinate conversion, setup strobes, wheel/button edge pulses and gating;
 - OLED power/reset timing and a complete 6144-pixel serial frame;
 - integrated menu -> calculator -> menu -> graph -> menu navigation.
 
-Vivado and a Basys3 board are still required for synthesis, timing validation,
-bitstream generation and physical OLED verification.
+The Icarus integration test instantiates the top level with
+`ENABLE_HARDWARE_MOUSE=0`, which provides safe mouse-zero inputs and keeps the
+suite pure Verilog. Vivado is required to synthesize the generated hardware
+instantiation together with `MouseCtl`/`Ps2Interface`, and a Basys3 board is
+required to validate actual PS/2 init, wheel reports and button timing.
 
 ## Important source files
 
@@ -188,6 +218,7 @@ bitstream generation and physical OLED verification.
 - `graph_controller.v`, `graph_renderer.v`: graph logic and OLED UI.
 - `signed_switch_input.v`, `check_invalid.v`, `check_overflow.v`,
   `calculation_history.v`: shared input/validation/history blocks.
+- `mouse_graph_adapter.v`: Graph Mode adapter for the supplied `MouseCtl`.
 - `Oled_Display.v`: supplied SSD1331 interface with the two verified fixes noted above.
 - `FDP2026/FDP2026.srcs/sim_1/new/`: self-checking testbenches.
 

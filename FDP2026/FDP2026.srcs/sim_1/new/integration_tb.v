@@ -5,11 +5,15 @@ module integration_tb;
     reg btnU=0,btnD=0,btnL=0,btnR=0,btnC=0;
     wire [15:0] led;
     wire [7:0] JA;
+    wire PS2Clk,PS2Data;
     always #5 clk=~clk;
 
-    My_Top_Module #(.BUTTON_COUNTER_BITS(1),.SWITCH_COUNTER_BITS(1)) dut(
+    My_Top_Module #(
+        .BUTTON_COUNTER_BITS(1),.SWITCH_COUNTER_BITS(1),.ENABLE_HARDWARE_MOUSE(0)
+    ) dut(
         .clk(clk),.sw(sw),.btnU(btnU),.btnD(btnD),.btnL(btnL),
-        .btnR(btnR),.btnC(btnC),.led(led),.JA(JA)
+        .btnR(btnR),.btnC(btnC),.PS2Clk(PS2Clk),.PS2Data(PS2Data),
+        .led(led),.JA(JA)
     );
 
     task raw_press_c; begin btnC=1; repeat(8)@(posedge clk); btnC=0; repeat(8)@(posedge clk); end endtask

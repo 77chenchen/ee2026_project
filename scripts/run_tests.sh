@@ -32,6 +32,9 @@ run_tb menu_renderer_tb \
 run_tb graph_controller_tb \
     "$src/graph_controller.v" "$sim/graph_controller_tb.v"
 
+run_tb mouse_graph_adapter_tb \
+    "$src/mouse_graph_adapter.v" "$sim/mouse_graph_adapter_tb.v"
+
 run_tb graph_renderer_tb \
     "$src/graph_renderer.v" "$sim/graph_renderer_tb.v"
 
@@ -43,7 +46,7 @@ run_tb integration_tb \
     "$src/signed_switch_input.v" "$src/check_invalid.v" \
     "$src/check_overflow.v" "$src/calculation_history.v" \
     "$src/calculator_mode.v" "$src/calculator_renderer.v" \
-    "$src/graph_controller.v" \
+    "$src/graph_controller.v" "$src/mouse_graph_adapter.v" \
     "$src/graph_renderer.v" \
     "$src/menu_renderer.v" "$src/Oled_Display.v" \
     "$src/My_Top_Module.v" "$sim/integration_tb.v"
