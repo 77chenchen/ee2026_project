@@ -105,7 +105,53 @@
       </File>
       <File Path="$PSRCDIR/sources_1/new/Oled_Display.v">
         <FileInfo>
-          <Attr Name="AutoDisabled" Val="1"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/button_onepulse.v">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/switch_sync.v">
+        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/signed_switch_input.v">
+        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/check_invalid.v">
+        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/check_overflow.v">
+        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/calculation_history.v">
+        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/calculator_mode.v">
+        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/calculator_renderer.v">
+        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/graph_controller.v">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/graph_renderer.v">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/menu_renderer.v">
+        <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
@@ -136,11 +182,41 @@
       </Config>
     </FileSet>
     <FileSet Name="sim_1" Type="SimulationSrcs" RelSrcDir="$PSRCDIR/sim_1" RelGenDir="$PGENDIR/sim_1">
+      <File Path="$PSRCDIR/sim_1/new/button_onepulse_tb.v">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/new/graph_controller_tb.v">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/new/graph_renderer_tb.v">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/new/calculator_mode_tb.v">
+        <FileInfo><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/new/calculator_renderer_tb.v">
+        <FileInfo><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/new/menu_renderer_tb.v">
+        <FileInfo><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/new/oled_display_tb.v">
+        <FileInfo><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/new/integration_tb.v">
+        <FileInfo><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
       <Config>
         <Option Name="DesignMode" Val="RTL"/>
-        <Option Name="TopModule" Val="MouseCtl"/>
+        <Option Name="TopModule" Val="integration_tb"/>
         <Option Name="TopLib" Val="xil_defaultlib"/>
-        <Option Name="TopAutoSet" Val="TRUE"/>
+        <Option Name="TopAutoSet" Val="FALSE"/>
         <Option Name="TransportPathDelay" Val="0"/>
         <Option Name="TransportIntDelay" Val="0"/>
         <Option Name="SelectedSimModel" Val="rtl"/>
