@@ -1,59 +1,79 @@
 `timescale 1ns / 1ps
 
 // Group 06 integrated graphical-calculator top level.
-// BTNL enters the calculator, BTND enters Graph Mode and SW15 returns home.
+//
+// The port list, menu navigation and JB OLED connection follow Hanna's
+// 2026-10-17 archive.  The calculator uses Hanna's interface but the verified
+// signed-arithmetic core, and the graph view uses the main-project renderer.
 module My_Top_Module #(
     parameter integer BUTTON_COUNTER_BITS = 19,
     parameter integer SWITCH_COUNTER_BITS = 18,
-    // Retained for testbench compatibility.  Mouse hardware is intentionally
-    // omitted from the resource-constrained Basys3 build.
-    parameter integer ENABLE_HARDWARE_MOUSE = 0
+    parameter integer ENABLE_CALCULATOR = 1,
+    parameter integer ENABLE_GRAPH = 1
 ) (
-    input  wire        clk,
+    input  wire        CLOCK,
     input  wire [15:0] sw,
     input  wire        btnU,
     input  wire        btnD,
+    input  wire        btnC,
     input  wire        btnL,
     input  wire        btnR,
-    input  wire        btnC,
-    inout wire        PS2Clk,
-    inout wire        PS2Data,
-    output wire [15:0] led,
-    output wire [7:0]  JA
+    output wire [7:0]  JB
 );
     localparam [1:0] MODE_MENU=2'd0, MODE_CALC=2'd1, MODE_GRAPH=2'd2;
 
     reg [5:0] power_on_reset_count = 6'd63;
-    always @(posedge clk)
+    always @(posedge CLOCK)
         if(power_on_reset_count!=0) power_on_reset_count<=power_on_reset_count-1'b1;
     wire system_reset=(power_on_reset_count!=0);
 
-    reg [3:0] oled_clock_divider=0;
-    always @(posedge clk) oled_clock_divider<=oled_clock_divider+1'b1;
+    // CLOCK is the 100 MHz Basys3 oscillator.  Divide by 16 to retain the
+    // 6.25 MHz OLED timing used by Hanna's clock_hz instance.
+    reg [3:0] oled_clock_divider=4'd0;
+    always @(posedge CLOCK) oled_clock_divider<=oled_clock_divider+1'b1;
     wire clk6p25m=oled_clock_divider[3];
 
     wire btnU_pressed,btnD_pressed,btnL_pressed,btnR_pressed,btnC_pressed;
-    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_u(.clk(clk),.reset(system_reset),.button_in(btnU),.pressed(btnU_pressed));
-    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_d(.clk(clk),.reset(system_reset),.button_in(btnD),.pressed(btnD_pressed));
-    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_l(.clk(clk),.reset(system_reset),.button_in(btnL),.pressed(btnL_pressed));
-    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_r(.clk(clk),.reset(system_reset),.button_in(btnR),.pressed(btnR_pressed));
-    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_c(.clk(clk),.reset(system_reset),.button_in(btnC),.pressed(btnC_pressed));
+    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_u(.clk(CLOCK),.reset(system_reset),.button_in(btnU),.pressed(btnU_pressed));
+    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_d(.clk(CLOCK),.reset(system_reset),.button_in(btnD),.pressed(btnD_pressed));
+    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_l(.clk(CLOCK),.reset(system_reset),.button_in(btnL),.pressed(btnL_pressed));
+    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_r(.clk(CLOCK),.reset(system_reset),.button_in(btnR),.pressed(btnR_pressed));
+    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_c(.clk(CLOCK),.reset(system_reset),.button_in(btnC),.pressed(btnC_pressed));
 
     wire sw13_level,sw14_level,sw15_level;
     wire unused_r13,unused_f13,unused_r14,unused_f14,unused_r15,unused_f15;
-    switch_sync #(.COUNTER_BITS(SWITCH_COUNTER_BITS)) ss13(.clk(clk),.reset(system_reset),.async_in(sw[13]),.level(sw13_level),.rising(unused_r13),.falling(unused_f13));
-    switch_sync #(.COUNTER_BITS(SWITCH_COUNTER_BITS)) ss14(.clk(clk),.reset(system_reset),.async_in(sw[14]),.level(sw14_level),.rising(unused_r14),.falling(unused_f14));
-    switch_sync #(.COUNTER_BITS(SWITCH_COUNTER_BITS)) ss15(.clk(clk),.reset(system_reset),.async_in(sw[15]),.level(sw15_level),.rising(unused_r15),.falling(unused_f15));
+    switch_sync #(.COUNTER_BITS(SWITCH_COUNTER_BITS)) ss13(.clk(CLOCK),.reset(system_reset),.async_in(sw[13]),.level(sw13_level),.rising(unused_r13),.falling(unused_f13));
+    switch_sync #(.COUNTER_BITS(SWITCH_COUNTER_BITS)) ss14(.clk(CLOCK),.reset(system_reset),.async_in(sw[14]),.level(sw14_level),.rising(unused_r14),.falling(unused_f14));
+    switch_sync #(.COUNTER_BITS(SWITCH_COUNTER_BITS)) ss15(.clk(CLOCK),.reset(system_reset),.async_in(sw[15]),.level(sw15_level),.rising(unused_r15),.falling(unused_f15));
     wire signed [7:0] signed_switch_value;
-    signed_switch_input signed_input(.clk(clk),.reset(system_reset),.switches(sw[7:0]),.value(signed_switch_value));
+    signed_switch_input signed_input(.clk(CLOCK),.reset(system_reset),.switches(sw[7:0]),.value(signed_switch_value));
 
     reg [1:0] mode=MODE_MENU;
-    always @(posedge clk) begin
-        if(system_reset) mode<=MODE_MENU;
-        else if((mode!=MODE_MENU)&&sw15_level) mode<=MODE_MENU;
-        else if((mode==MODE_MENU)&&!sw15_level) begin
-            if(btnL_pressed) mode<=MODE_CALC;
-            else if(btnD_pressed) mode<=MODE_GRAPH;
+    reg [1:0] menu_arrow=2'd0;
+    reg system_reset_meta=1'b1;
+    reg system_reset_stable=1'b1;
+    always @(posedge CLOCK) begin
+        system_reset_meta<=1'b0;
+        system_reset_stable<=system_reset_meta;
+    end
+    always @(posedge CLOCK) begin
+        if(system_reset) begin
+            mode<=MODE_MENU;
+            menu_arrow<=2'd0;
+        end else if(system_reset_stable) begin
+            mode<=mode;
+        end else if(sw15_level) begin
+            mode<=MODE_MENU;
+            menu_arrow<=2'd0;
+        end else if(mode==MODE_MENU) begin
+            if(btnU_pressed)
+                menu_arrow<=2'd0;
+            else if(btnD_pressed)
+                menu_arrow<=2'd1;
+            else if(btnC_pressed) begin
+                if(menu_arrow==2'd0) mode<=MODE_CALC;
+                else                mode<=MODE_GRAPH;
+            end
         end
     end
 
@@ -72,7 +92,7 @@ module My_Top_Module #(
     wire signed [15:0] calc_history_0,calc_history_1,calc_history_2;
     wire calc_recall_error;
     calculator_mode #(.ENABLE_HISTORY(0)) calculator_core(
-        .clk(clk),.reset(system_reset),
+        .clk(CLOCK),.reset(system_reset),
         .btnC_pressed(calc_active&&btnC_pressed),.btnU_pressed(calc_active&&btnU_pressed),
         .btnD_pressed(calc_active&&btnD_pressed),.btnL_pressed(calc_active&&btnL_pressed),
         .btnR_pressed(calc_active&&btnR_pressed),
@@ -101,7 +121,7 @@ module My_Top_Module #(
     wire signed [15:0] intersection_x_q4,intersection_y_q4;
 
     graph_controller graph_core(
-        .clk(clk),.reset(system_reset||!graph_active),
+        .clk(CLOCK),.reset(system_reset||!graph_active),
         .btnC_pressed(graph_active&&btnC_pressed),.btnU_pressed(graph_active&&btnU_pressed),
         .btnD_pressed(graph_active&&btnD_pressed),.btnL_pressed(graph_active&&btnL_pressed),
         .btnR_pressed(graph_active&&btnR_pressed),.sw0(sw[0]),
@@ -120,15 +140,13 @@ module My_Top_Module #(
         .intersection_x_q4(intersection_x_q4),.intersection_y_q4(intersection_y_q4)
     );
 
-    assign PS2Clk=1'bz;
-    assign PS2Data=1'bz;
-
     wire [12:0] pixel_index;
     wire frame_begin,sending_pixels,sample_pixel;
 
     // Snapshot all renderer inputs at a frame boundary.  This prevents a
     // button press from producing a half-old/half-new OLED frame.
     reg [1:0] frame_mode;
+    reg [1:0] frame_menu_arrow;
     reg signed [7:0] frame_input,frame_calc_a,frame_calc_b;
     reg [2:0] frame_calc_state;
     reg [1:0] frame_calc_operation;
@@ -147,10 +165,11 @@ module My_Top_Module #(
 
     always @(posedge clk6p25m) begin
         if(system_reset) begin
-            frame_mode<=MODE_MENU; frame_input<=0; frame_calc_state<=0;
+            frame_mode<=MODE_MENU; frame_menu_arrow<=2'd0; frame_input<=0; frame_calc_state<=0;
             frame_graph_draw<=0; frame_intersection_valid<=0;
         end else if(frame_begin) begin
             frame_mode<=mode;
+            frame_menu_arrow<=menu_arrow;
             frame_input<=signed_switch_value;
             frame_calc_a<=calc_a; frame_calc_b<=calc_b; frame_calc_state<=calc_state;
             frame_calc_operation<=calc_operation; frame_calc_operation_valid<=calc_operation_valid;
@@ -195,7 +214,8 @@ module My_Top_Module #(
     wire compact_text_on;
     wire [15:0] compact_text_pixel;
     compact_text_renderer shared_text(
-        .mode(frame_mode),.screen_x(unused_screen_x),.screen_y(unused_screen_y),
+        .mode(frame_mode),.menu_arrow(frame_menu_arrow),
+        .screen_x(unused_screen_x),.screen_y(unused_screen_y),
         .input_value(frame_input),.calc_a(frame_calc_a),.calc_state(frame_calc_state),
         .calc_result(frame_calc_result),.calc_result_valid(frame_calc_result_valid),
         .calc_div0(frame_calc_div0),.calc_overflow(frame_calc_overflow),
@@ -222,24 +242,6 @@ module My_Top_Module #(
         .vccen(oled_vccen),.pmoden(oled_pmoden)
     );
 
-    assign JA[0]=oled_cs; assign JA[1]=oled_sdin; assign JA[2]=1'b0; assign JA[3]=oled_sclk;
-    assign JA[4]=oled_d_cn; assign JA[5]=oled_resn; assign JA[6]=oled_vccen; assign JA[7]=oled_pmoden;
-
-    reg [15:0] led_value;
-    always @* begin
-        led_value=16'd0;
-        if(mode==MODE_MENU) led_value[0]=1'b1;
-        else if(mode==MODE_CALC) begin
-            led_value[1]=1'b1; led_value[4:2]=calc_state;
-            led_value[5]=calc_operation_valid; led_value[6]=calc_result_valid;
-            led_value[7]=calc_div0; led_value[8]=calc_overflow;
-            led_value[11]=calc_busy;
-        end else begin
-            led_value[2:0]=graph_state; led_value[3]=graph_ready; led_value[4]=graph_draw;
-            led_value[5]=current_graph; led_value[7:6]=graph_count;
-            led_value[10:8]=graph_status; led_value[11]=intersection_valid;
-            led_value[15:12]=graph_scale;
-        end
-    end
-    assign led=led_value;
+    assign JB[0]=oled_cs; assign JB[1]=oled_sdin; assign JB[2]=1'b0; assign JB[3]=oled_sclk;
+    assign JB[4]=oled_d_cn; assign JB[5]=oled_resn; assign JB[6]=oled_vccen; assign JB[7]=oled_pmoden;
 endmodule

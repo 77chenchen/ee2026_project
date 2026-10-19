@@ -1,15 +1,19 @@
 # EE2026 Interactive FPGA Graphical Calculator
 
-This repository contains one integrated Basys3 bitstream design for Group 06.
-The top level combines the work from all four members:
+This repository contains the integrated Basys3 design for Group 06. The
+synthesis top follows Hanna's 2026-10-17 archive (`Hanna_2026_10_17.xpr.zip`)
+for its `CLOCK`, `sw`, button and `JB[7:0]` interface. The verified calculator
+and graph logic from the main project is connected behind that interface.
 
 - Milla: signed switch input, invalid-operation checking and overflow checking.
 - Hanna: four-operation calculator and calculator OLED interface.
 - Oskar: graph input controller, line/quadratic parameters, linear intersection mathematics and view controls.
 - Wang: graph OLED renderer, graph UI and final OLED/top-level integration.
 
-The active Vivado project is `FDP2026/FDP2026.xpr`. The active top module is
-`My_Top_Module`. Development is currently on the local `test` branch.
+The active Vivado project is `FDP2026/FDP2026.xpr`. The active synthesis top is
+`My_Top_Module` and the simulation top is `integration_tb`. The port and menu
+convention is the Hanna 2026-10-17 convention, not the older `BTNL`/`JA`
+convention in the standalone archive copies.
 
 ## Implemented functions
 
@@ -40,11 +44,17 @@ The active Vivado project is `FDP2026/FDP2026.xpr`. The active top module is
 
 | Control | Action |
 | --- | --- |
-| `BTNL` | Enter Calculator Mode |
-| `BTND` | Enter Graph Mode |
+| `BTNU` | Select the upper Calculator entry |
+| `BTND` | Select the lower Graph entry |
+| `BTNC` | Enter the selected mode |
 | `SW15` | Return to the main menu from either mode |
 
-The menu shows `L CALC` in green and `D GRAPH` in orange.
+The menu is Hanna's two-entry menu: **Calculator is the upper/initial choice**
+and **Graph is the lower choice**. A cyan ">" marker and the selected entry's
+highlight show the current choice. `BTNU`/`BTND` only change the menu choice;
+`BTNC` enters it. Once Calculator or Graph is active, menu buttons have no
+menu effect and only that mode receives the button events. `SW15` returns to
+the menu and resets the choice to Calculator.
 
 ### Signed switch input
 
@@ -88,9 +98,12 @@ Graph view controls:
 
 | Switch mode | Buttons | Action |
 | --- | --- | --- |
-| `SW13=0` | `BTNU/D/L/R` | Pan vertically/horizontally |
-| `SW13=1` | `BTNU/BTND` | Zoom in/out (`1, 2, 4, 8` pixels per unit) |
-| `SW13=1` | `BTNL/BTNR` | Pan horizontally |
+| Graph view | `BTNU/BTND` | Zoom in/out (`1, 2, 4, 8` pixels per unit) |
+| Graph view | `BTNL/BTNR` | Pan horizontally |
+
+The graph view keeps the existing zoom/pan implementation. `BTNC` in the
+coefficient-entry states saves only the current coefficient or choice; it is
+not forwarded to the menu, so it cannot switch modes.
 
 Graph status meanings:
 
@@ -104,9 +117,9 @@ Graph status meanings:
 ## OLED and Pmod connection
 
 The design uses the supplied `Oled_Display` interface at 6.25 MHz and the
-96 x 64 RGB565 pixel contract. The OLED is connected to Pmod `JA`:
+96 x 64 RGB565 pixel contract. The OLED is connected to Pmod `JB`:
 
-| JA bit | OLED signal |
+| JB bit | OLED signal |
 | ---: | --- |
 | 0 | `CS` |
 | 1 | `SDIN` |
@@ -117,18 +130,16 @@ The design uses the supplied `Oled_Display` interface at 6.25 MHz and the
 | 6 | `VCCEN` |
 | 7 | `PMODEN` |
 
-The OLED driver includes verified fixes for the initial power-settling delay
-and transmission of pixel 6143, so a frame contains all 6144 pixels. Renderer
-state is copied only at frame boundaries to prevent a mixed old/new frame when
-the user presses a control.
+`JB[2]` is tied low. The OLED driver includes verified fixes for the initial
+power-settling delay and transmission of pixel 6143, so a frame contains all
+6144 pixels. Renderer state is copied only at frame boundaries to prevent a
+mixed old/new frame when the user presses a control.
 
-## LEDs
+### Frame snapshot
 
-- Menu: `LED0` is on.
-- Calculator: `LED1` is on; other LEDs expose calculator state, validity,
-  divide-by-zero, overflow and divider busy state.
-- Graph: LEDs expose controller state, ready/draw, current graph, graph count,
-  graph status, intersection validity and zoom scale.
+All renderer inputs are copied on `frame_begin` into frame-local registers.
+The renderer and shared text plane therefore only see one coherent mode,
+state, coefficient set and graph view during a complete 6144-pixel frame.
 
 ## Build in Vivado
 
@@ -137,7 +148,7 @@ the user presses a control.
 3. Confirm `Basys3_Master.xdc` is active.
 4. Run **Synthesis**, **Implementation**, then **Generate Bitstream**.
 5. Check timing, DRC and utilization before programming the board.
-6. With board power off, connect the OLED to `JA`; power on and program the
+6. With board power off, connect the OLED to `JB`; power on and program the
    generated bitstream.
 
 The checked-in XPR retains the Windows project location used by the original
@@ -159,6 +170,14 @@ synthesis/timing/bitstream generation and physical Basys3/OLED verification
 must still be run in the lab. The RTL and OLED protocol are covered by the
 simulations below.
 
+The archived Hanna 2026-10-17 implementation used 1,462 LUTs, 321 FFs, no
+BRAM and 6 DSPs after placement, but its archived routed timing summary was
+**not met** (`WNS = -10.938 ns`, 16 failing setup endpoints, 534 total
+endpoints). That report is for Hanna's calculator-only/earlier graph
+integration and is **not** evidence that this combined design will meet
+100 MHz. The maintained calculator core uses a multi-cycle divider, but the
+graph arithmetic still needs a fresh Vivado timing run.
+
 ## Run simulations
 
 Requirements: `iverilog` and `vvp` on `PATH`.
@@ -171,27 +190,37 @@ The suite checks:
 
 - button debounce and one-pulse behaviour;
 - calculator arithmetic, signed division, division by zero and overflow;
-- calculator/menu OLED screens;
+- Hanna-style calculator/menu OLED screens;
 - graph input FSM, linear intersection, parallel/identical/off-screen cases;
 - graph line/quadratic rendering, marker, status, pan and zoom;
 - OLED power/reset timing and a complete 6144-pixel serial frame;
-- integrated menu -> calculator -> menu -> graph -> menu navigation.
+- integrated boot -> Hanna menu -> calculator -> menu -> graph -> menu navigation;
+- the upper/lower menu selection, `BTNC` entry and mode isolation;
+- the OLED `JB` mapping and complete 6144-pixel frame.
 
 The resource-constrained top level omits the optional PS/2 mouse, calculator
 history and coordinate cursor extensions. Their source files remain in the
 repository history, but they are not included in the Vivado synthesis set.
+The archived Hanna and Milla sources are preserved under
+`FDP2026/team_sources/` and are not compiled by the main project.
 
 ## Important source files
 
 - `FDP2026/FDP2026.srcs/sources_1/new/My_Top_Module.v`: integrated top level.
-- `calculator_mode.v`, `calculator_renderer.v`: calculator logic and OLED UI.
+- `calculator_mode.v`, `calculator_renderer.v`: verified signed calculator
+  logic and OLED UI, used behind the Hanna-compatible top-level interface.
 - `graph_controller.v`, `graph_renderer.v`: graph logic and OLED UI.
 - `signed_switch_input.v`, `check_invalid.v`, `check_overflow.v`,
   `calculation_history.v`: shared input/validation blocks and the optional,
   disabled history implementation.
 - `Oled_Display.v`: supplied SSD1331 interface with the two verified fixes noted above.
 - `FDP2026/FDP2026.srcs/sim_1/new/`: self-checking testbenches.
+- `FDP2026/team_sources/hanna_2026_10_17/`: original Hanna archive sources and
+  archived utilization/timing reports, kept as member-code records.
+- `FDP2026/team_sources/milla/`: original Milla source snapshots.
+
+The old `FDP2026/Hannas_part/` directory is the earlier archive and is not the
+2026-10-17 integration baseline.
 
 Do not use the standalone `Hannas_part` or `sw_to_binary` projects for the final
-bitstream; they are retained only as historical teammate work. Use the main
-`FDP2026.xpr` project.
+bitstream; use the maintained `FDP2026.xpr` project.
