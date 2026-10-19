@@ -3,7 +3,7 @@
 This repository contains one integrated Basys3 bitstream design for Group 06.
 The top level combines the work from all four members:
 
-- Milla: signed switch input, invalid-operation checking, overflow checking and three-result history.
+- Milla: signed switch input, invalid-operation checking and overflow checking.
 - Hanna: four-operation calculator and calculator OLED interface.
 - Oskar: graph input controller, line/quadratic parameters, linear intersection mathematics and view controls.
 - Wang: graph OLED renderer, graph UI and final OLED/top-level integration.
@@ -19,8 +19,7 @@ The active Vivado project is `FDP2026/FDP2026.xpr`. The active top module is
 - Addition, subtraction, multiplication and division.
 - Full signed 16-bit result display.
 - Division-by-zero error display.
-- Overflow warning when the result cannot be recalled as an 8-bit operand.
-- Three-entry signed result history and history recall.
+- Overflow warning when the result is outside the signed 8-bit input range.
 - No FPGA reprogramming is needed between calculations.
 
 ### Graph Mode
@@ -32,9 +31,7 @@ The active Vivado project is `FDP2026/FDP2026.xpr`. The active top module is
 - Axes, grid, clipping and continuous line/curve rendering.
 - Exact intersection for two linear functions.
 - `PAR`, `SAME`, `OUT` and `ERR` status overlays.
-- Zoom, pan and movable coordinate cursor.
-- Optional Graph Mode PS/2 mouse control with crosshair, wheel zoom,
-  left-click recenter and right-click view reset.
+- Zoom and pan controls.
 - Input-stage OLED guidance and signed coefficient preview.
 
 ## Hardware controls
@@ -75,17 +72,8 @@ mode switches are synchronised/debounced by the design.
 4. Set Operand B on `SW7..SW0`; press `BTNC` to calculate.
 5. Raise `SW14` to start a new expression. Lower it before the next use.
 
-History controls:
-
-| Control | Action |
-| --- | --- |
-| `SW13=1` | Open history overlay |
-| `BTNU/BTND` | Select a stored result |
-| `BTNC` | Recall the selected result as Operand A |
-
-Only values in the signed 8-bit range can be recalled. An `OVF` message means
-the full result is valid and stored, but is outside that recall range. `DIV0`
-means the attempted division was invalid and was not added to history.
+An `OVF` message means the full result is valid but outside the signed 8-bit
+input range. `DIV0` means the attempted division was invalid.
 
 ### Graph Mode input
 
@@ -100,34 +88,9 @@ Graph view controls:
 
 | Switch mode | Buttons | Action |
 | --- | --- | --- |
-| `SW12=0, SW13=0` | `BTNU/D/L/R` | Pan vertically/horizontally |
-| `SW12=0, SW13=1` | `BTNU/BTND` | Zoom in/out (`1, 2, 4, 8` pixels per unit) |
-| `SW12=0, SW13=1` | `BTNL/BTNR` | Pan horizontally |
-| `SW12=1` | `BTNU/D/L/R` | Move the cyan coordinate cursor |
-
-### PS/2 mouse control
-
-Connect a PS/2 mouse to the Basys3 PS/2 connector:
-
-| Signal | Pin |
-| --- | --- |
-| `PS2Clk` | `C17` |
-| `PS2Data` | `B17` |
-
-Raise `SW11` in Graph Mode after the graph reaches `VIEW_GRAPH` (`DRAW`) to
-enable mouse control. `LED13` follows `SW11`, and `LED14` turns on after the
-driver finishes configuring `MouseCtl`.
-
-| Mouse input | Action |
-| --- | --- |
-| Move | Move the cyan crosshair and X/Y coordinate readout. |
-| Wheel up / down | Zoom in / out through the existing `1, 2, 4, 8` scales. |
-| Left click | Center the clicked graph coordinate at screen `(48,32)`. |
-| Right click | Reset the view to scale 4 and origin `(48,32)`. |
-
-Mouse actions are edge-triggered and occur only in Graph Mode's `VIEW_GRAPH`
-state. They have priority over the buttons, but `SW12` button-cursor control
-remains available when `SW11` is off (or before mouse setup completes).
+| `SW13=0` | `BTNU/D/L/R` | Pan vertically/horizontally |
+| `SW13=1` | `BTNU/BTND` | Zoom in/out (`1, 2, 4, 8` pixels per unit) |
+| `SW13=1` | `BTNL/BTNR` | Pan horizontally |
 
 Graph status meanings:
 
@@ -163,7 +126,7 @@ the user presses a control.
 
 - Menu: `LED0` is on.
 - Calculator: `LED1` is on; other LEDs expose calculator state, validity,
-  divide-by-zero, overflow, history count and divider busy state.
+  divide-by-zero, overflow and divider busy state.
 - Graph: LEDs expose controller state, ready/draw, current graph, graph count,
   graph status, intersection validity and zoom scale.
 
@@ -193,19 +156,16 @@ Requirements: `iverilog` and `vvp` on `PATH`.
 The suite checks:
 
 - button debounce and one-pulse behaviour;
-- calculator arithmetic, signed division, division by zero, overflow, history and recall;
+- calculator arithmetic, signed division, division by zero and overflow;
 - calculator/menu OLED screens;
 - graph input FSM, linear intersection, parallel/identical/off-screen cases;
-- graph line/quadratic rendering, marker, status, pan, zoom and cursor;
-- mouse coordinate conversion, setup strobes, wheel/button edge pulses and gating;
+- graph line/quadratic rendering, marker, status, pan and zoom;
 - OLED power/reset timing and a complete 6144-pixel serial frame;
 - integrated menu -> calculator -> menu -> graph -> menu navigation.
 
-The Icarus integration test instantiates the top level with
-`ENABLE_HARDWARE_MOUSE=0`, which provides safe mouse-zero inputs and keeps the
-suite pure Verilog. Vivado is required to synthesize the generated hardware
-instantiation together with `MouseCtl`/`Ps2Interface`, and a Basys3 board is
-required to validate actual PS/2 init, wheel reports and button timing.
+The resource-constrained top level omits the optional PS/2 mouse, calculator
+history and coordinate cursor extensions. Their source files remain in the
+repository history, but they are not included in the Vivado synthesis set.
 
 ## Important source files
 
@@ -213,8 +173,8 @@ required to validate actual PS/2 init, wheel reports and button timing.
 - `calculator_mode.v`, `calculator_renderer.v`: calculator logic and OLED UI.
 - `graph_controller.v`, `graph_renderer.v`: graph logic and OLED UI.
 - `signed_switch_input.v`, `check_invalid.v`, `check_overflow.v`,
-  `calculation_history.v`: shared input/validation/history blocks.
-- `mouse_graph_adapter.v`: Graph Mode adapter for the supplied `MouseCtl`.
+  `calculation_history.v`: shared input/validation blocks and the optional,
+  disabled history implementation.
 - `Oled_Display.v`: supplied SSD1331 interface with the two verified fixes noted above.
 - `FDP2026/FDP2026.srcs/sim_1/new/`: self-checking testbenches.
 

@@ -226,7 +226,7 @@ module compact_text_renderer (
                             else if(calc_overflow) begin selected_color=RED;case(char_col)11:selected_char="O";12:selected_char="V";13:selected_char="F";endcase end
                         end
                         if(calc_result_valid) begin show_number=1;number_row=3;number_start_col=4;number_value=calc_result;end
-                        if(char_row==7) begin selected_color=YELLOW;case(char_col)0:selected_char="1";1:selected_char="4";3:selected_char="N";4:selected_char="E";5:selected_char="W";8:selected_char="1";9:selected_char="3";11:selected_char="H";12:selected_char="I";endcase end
+                        if(char_row==7) begin selected_color=YELLOW;case(char_col)0:selected_char="1";1:selected_char="4";3:selected_char="N";4:selected_char="E";5:selected_char="W";endcase end
                     end
                 endcase
                 if(calc_busy&&(char_row==6)) begin selected_color=ORANGE; selected_char="."; end

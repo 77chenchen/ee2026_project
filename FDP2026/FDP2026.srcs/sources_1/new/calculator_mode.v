@@ -7,7 +7,9 @@
 // not fit back into eight signed bits; the full 16-bit result is still kept.
 // Division is performed over eight clocks so that no long combinational
 // divider is placed on the 100 MHz system-clock path.
-module calculator_mode (
+module calculator_mode #(
+    parameter ENABLE_HISTORY = 1
+) (
     input  wire                    clk,
     input  wire                    reset,
     input  wire                    btnC_pressed,
@@ -109,11 +111,20 @@ module calculator_mode (
 
     reg history_save;
     reg signed [15:0] history_save_value;
-    calculation_history history_store(
-        .clk(clk), .reset(reset), .save(history_save),
-        .result(history_save_value), .count(history_count),
-        .history_0(history_0), .history_1(history_1), .history_2(history_2)
-    );
+    generate
+        if (ENABLE_HISTORY) begin : g_history
+            calculation_history history_store(
+                .clk(clk), .reset(reset), .save(history_save),
+                .result(history_save_value), .count(history_count),
+                .history_0(history_0), .history_1(history_1), .history_2(history_2)
+            );
+        end else begin : g_no_history
+            assign history_count = 2'd0;
+            assign history_0 = 16'sd0;
+            assign history_1 = 16'sd0;
+            assign history_2 = 16'sd0;
+        end
+    endgenerate
 
     wire signed [15:0] selected_history =
         (history_select == 2'd0) ? history_0 :
@@ -163,7 +174,7 @@ module calculator_mode (
             overflow <= 1'b0;
             recall_error <= 1'b0;
             history_select <= 2'd0;
-        end else if (sw13_history) begin
+        end else if (ENABLE_HISTORY && sw13_history) begin
             // History is an overlay: normal calculation state is paused.
             if (history_rising) begin
                 history_select <= 2'd0;

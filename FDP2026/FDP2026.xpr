@@ -89,25 +89,6 @@
   <FileSets Version="1" Minor="32">
     <FileSet Name="sources_1" Type="DesignSrcs" RelSrcDir="$PPRDIR/FDP2026.srcs/sources_1" RelGenDir="$PGENDIR/sources_1">
       <Filter Type="Srcs"/>
-      <File Path="$PPRDIR/FDP2026.srcs/sources_1/new/Ps2Interface.vhd">
-        <FileInfo>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PPRDIR/FDP2026.srcs/sources_1/new/Mouse_Control.vhd">
-        <FileInfo>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PPRDIR/FDP2026.srcs/sources_1/new/mouse_graph_adapter.v">
-        <FileInfo>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
       <File Path="$PPRDIR/FDP2026.srcs/sources_1/new/Oled_Display.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
@@ -200,11 +181,6 @@
         </FileInfo>
       </File>
       <File Path="$PPRDIR/FDP2026.srcs/sim_1/new/graph_controller_tb.v">
-        <FileInfo>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PPRDIR/FDP2026.srcs/sim_1/new/mouse_graph_adapter_tb.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>

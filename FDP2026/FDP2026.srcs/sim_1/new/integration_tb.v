@@ -31,8 +31,8 @@ module integration_tb;
         sw[7:0]=8; settle_switches(); raw_press_c();
         raw_press_u(); raw_press_c();
         sw[7:0]=5; settle_switches(); raw_press_c(); repeat(3)@(posedge clk); #1;
-        if(!dut.calc_result_valid || dut.calc_result!=13 || dut.calc_history_0!=13) begin
-            $display("FAIL integrated calculator result=%0d history=%0d",dut.calc_result,dut.calc_history_0); $finish_and_return(1);
+        if(!dut.calc_result_valid || dut.calc_result!=13) begin
+            $display("FAIL integrated calculator result=%0d",dut.calc_result); $finish_and_return(1);
         end
 
         sw[15]=1; settle_switches();
@@ -56,7 +56,7 @@ module integration_tb;
         sw[15]=1; settle_switches();
         if(dut.mode!=0) begin $display("FAIL graph back"); $finish_and_return(1); end
 
-        $display("PASS integrated menu, calculator, graph and back navigation");
+        $display("PASS resource-light menu, calculator, graph and back navigation");
         $finish;
     end
 endmodule
