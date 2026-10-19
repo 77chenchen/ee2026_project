@@ -140,6 +140,20 @@ the user presses a control.
 6. With board power off, connect the OLED to `JA`; power on and program the
    generated bitstream.
 
+All paths stored by the project are relative, so the repository can be placed
+anywhere on Windows. If Vivado still reports an invalid path after an older
+copy of the project has been opened, use the portable rebuild script instead:
+
+1. Open Vivado without opening an existing project.
+2. In the **Tcl Console**, run
+   `source {C:/your/path/ee2026_project/FDP2026/recreate_project.tcl}`.
+3. The script creates and opens
+   `FDP2026/vivado_rebuilt/FDP2026.xpr` with the Basys3 part, active source
+   set, constraints and simulation files already configured.
+
+Use forward slashes in the Tcl command on Windows and keep the braces around
+the complete path, especially when a folder name contains spaces.
+
 Vivado is not installed in the current development environment, so final
 synthesis/timing/bitstream generation and physical Basys3/OLED verification
 must still be run in the lab. The RTL and OLED protocol are covered by the
