@@ -58,6 +58,40 @@ module graph_renderer (
     assign screen_x = pixel_index % 13'd96;
     assign screen_y = pixel_index / 13'd96;
 
+    // Explicitly sized graph datapath.  dx is at most +/-95, so retaining
+    // 32-bit `integer` operands for the polynomial caused four unnecessarily
+    // large cascaded multipliers to be inferred during synthesis.
+    wire signed [8:0] graph_dx = $signed({2'b00, screen_x}) -
+                                 $signed({2'b00, origin_x});
+    wire signed [8:0] graph_dx_previous = graph_dx - 9'sd1;
+    wire signed [17:0] graph_dx_squared = graph_dx * graph_dx;
+    wire signed [17:0] graph_dx_previous_squared =
+        graph_dx_previous * graph_dx_previous;
+    wire signed [4:0] graph_scale_signed =
+        $signed({1'b0, scale_px_per_unit});
+    wire signed [16:0] graph1_linear = $signed(b1) * graph_dx;
+    wire signed [16:0] graph2_linear = $signed(b2) * graph_dx;
+    wire signed [16:0] graph1_linear_previous =
+        $signed(b1) * graph_dx_previous;
+    wire signed [16:0] graph2_linear_previous =
+        $signed(b2) * graph_dx_previous;
+    wire signed [12:0] graph1_offset = $signed(c1) * graph_scale_signed;
+    wire signed [12:0] graph2_offset = $signed(c2) * graph_scale_signed;
+    wire signed [25:0] graph1_quadratic = $signed(a1) * graph_dx_squared;
+    wire signed [25:0] graph2_quadratic = $signed(a2) * graph_dx_squared;
+    wire signed [25:0] graph1_quadratic_previous =
+        $signed(a1) * graph_dx_previous_squared;
+    wire signed [25:0] graph2_quadratic_previous =
+        $signed(a2) * graph_dx_previous_squared;
+    wire signed [20:0] intersection_x_scaled =
+        $signed(intersection_x_q4) * graph_scale_signed;
+    wire signed [20:0] intersection_y_scaled =
+        $signed(intersection_y_q4) * graph_scale_signed;
+    wire signed [20:0] cursor_x_scaled =
+        $signed(cursor_x_q4) * graph_scale_signed;
+    wire signed [20:0] cursor_y_scaled =
+        $signed(cursor_y_q4) * graph_scale_signed;
+
     function [4:0] glyph_row;
         input [7:0] ch;
         input [2:0] row;
@@ -140,21 +174,21 @@ module graph_renderer (
     integer ox;
     integer oy;
     integer scale;
-    integer scale_shift;
+    reg [1:0] scale_shift;
     integer dx;
     integer dy;
-    integer curve1_y;
-    integer curve2_y;
-    integer curve1_y_previous;
-    integer curve2_y_previous;
-    integer curve1_screen;
-    integer curve2_screen;
-    integer curve1_screen_previous;
-    integer curve2_screen_previous;
-    integer curve1_min;
-    integer curve1_max;
-    integer curve2_min;
-    integer curve2_max;
+    reg signed [26:0] curve1_y;
+    reg signed [26:0] curve2_y;
+    reg signed [26:0] curve1_y_previous;
+    reg signed [26:0] curve2_y_previous;
+    reg signed [27:0] curve1_screen;
+    reg signed [27:0] curve2_screen;
+    reg signed [27:0] curve1_screen_previous;
+    reg signed [27:0] curve2_screen_previous;
+    reg signed [27:0] curve1_min;
+    reg signed [27:0] curve1_max;
+    reg signed [27:0] curve2_min;
+    reg signed [27:0] curve2_max;
     integer abs_dx;
     integer abs_dy;
     integer grid_mask;
@@ -198,16 +232,20 @@ module graph_renderer (
         dx = px - ox;
         dy = oy - py;
 
-        curve1_y = ($signed(b1) * dx) + ($signed(c1) * scale);
-        curve2_y = ($signed(b2) * dx) + ($signed(c2) * scale);
-        curve1_y_previous = ($signed(b1) * (dx-1)) + ($signed(c1) * scale);
-        curve2_y_previous = ($signed(b2) * (dx-1)) + ($signed(c2) * scale);
-        if (graph1_type) curve1_y = curve1_y + (($signed(a1) * dx * dx) >>> scale_shift);
-        if (graph2_type) curve2_y = curve2_y + (($signed(a2) * dx * dx) >>> scale_shift);
-        if (graph1_type) curve1_y_previous = curve1_y_previous +
-            (($signed(a1) * (dx-1) * (dx-1)) >>> scale_shift);
-        if (graph2_type) curve2_y_previous = curve2_y_previous +
-            (($signed(a2) * (dx-1) * (dx-1)) >>> scale_shift);
+        curve1_y = graph1_linear + graph1_offset;
+        curve2_y = graph2_linear + graph2_offset;
+        curve1_y_previous = graph1_linear_previous + graph1_offset;
+        curve2_y_previous = graph2_linear_previous + graph2_offset;
+        if (graph1_type)
+            curve1_y = curve1_y + (graph1_quadratic >>> scale_shift);
+        if (graph2_type)
+            curve2_y = curve2_y + (graph2_quadratic >>> scale_shift);
+        if (graph1_type)
+            curve1_y_previous = curve1_y_previous +
+                                (graph1_quadratic_previous >>> scale_shift);
+        if (graph2_type)
+            curve2_y_previous = curve2_y_previous +
+                                (graph2_quadratic_previous >>> scale_shift);
         curve1_screen = oy-curve1_y;
         curve2_screen = oy-curve2_y;
         curve1_screen_previous = oy-curve1_y_previous;
@@ -233,26 +271,30 @@ module graph_renderer (
         graph2_pixel = draw_enable && (graph_count == 2) &&
                        (py >= curve2_min-1) && (py <= curve2_max+1);
 
-        marker_x = ox + (($signed(intersection_x_q4) * scale) >>> 4);
-        marker_y = oy - (($signed(intersection_y_q4) * scale) >>> 4);
+        marker_x = ox + (intersection_x_scaled >>> 4);
+        marker_y = oy - (intersection_y_scaled >>> 4);
         marker_pixel = draw_enable && intersection_valid &&
                        (graph_status == STATUS_OK) &&
                        ((((px == marker_x) || (py == marker_y)) &&
                          (px-marker_x <= 3) && (px-marker_x >= -3) &&
                          (py-marker_y <= 3) && (py-marker_y >= -3)));
 
-        cursor_x = ox + (($signed(cursor_x_q4) * scale) >>> 4);
-        cursor_y = oy - (($signed(cursor_y_q4) * scale) >>> 4);
+        cursor_x = ox + (cursor_x_scaled >>> 4);
+        cursor_y = oy - (cursor_y_scaled >>> 4);
         cursor_pixel = draw_enable && cursor_enable &&
                        (((px == cursor_x) && (py-cursor_y <= 4) && (py-cursor_y >= -4)) ||
                         ((py == cursor_y) && (px-cursor_x <= 4) && (px-cursor_x >= -4)));
 
         cursor_abs_x_q4 = (cursor_x_q4 < 0) ? -cursor_x_q4 : cursor_x_q4;
         cursor_abs_y_q4 = (cursor_y_q4 < 0) ? -cursor_y_q4 : cursor_y_q4;
-        cursor_x_integer = (cursor_abs_x_q4 / 16) % 100;
-        cursor_y_integer = (cursor_abs_y_q4 / 16) % 100;
-        cursor_x_fraction = ((cursor_abs_x_q4 % 16) >= 8) ? 5 : 0;
-        cursor_y_fraction = ((cursor_abs_y_q4 % 16) >= 8) ? 5 : 0;
+        // Q4 integer/fraction extraction is wiring, not division.  Saturating
+        // the two-character field avoids synthesizing a modulo-100 divider.
+        cursor_x_integer = cursor_abs_x_q4[15:4];
+        cursor_y_integer = cursor_abs_y_q4[15:4];
+        if (cursor_x_integer > 99) cursor_x_integer = 99;
+        if (cursor_y_integer > 99) cursor_y_integer = 99;
+        cursor_x_fraction = (cursor_abs_x_q4[3:0] >= 8) ? 5 : 0;
+        cursor_y_fraction = (cursor_abs_y_q4[3:0] >= 8) ? 5 : 0;
         coordinate_pixel = 1'b0;
         if (draw_enable && cursor_enable) begin
             coordinate_pixel =

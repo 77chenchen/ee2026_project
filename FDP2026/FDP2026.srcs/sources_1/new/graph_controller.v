@@ -77,13 +77,17 @@ module graph_controller (
     wire signed [8:0] recenter_y = $signed({3'b000, origin_y}) + $signed(9'sd32) -
                                    $signed({2'b00, mouse_screen_y});
 
-    integer coefficient_difference;
-    integer slope_difference;
-    integer x_calculated_q4;
-    integer y_calculated_q4;
-    integer intersection_screen_x;
-    integer intersection_screen_y;
-    integer scale_integer;
+    // Keep the datapath at the widths required by the coefficient ranges.
+    // Using Verilog `integer` here made Vivado build a 32-by-32 divider and
+    // several 32-bit multipliers, even though the inputs are only eight bits.
+    reg signed [8:0]  coefficient_difference;
+    reg signed [8:0]  slope_difference;
+    reg signed [12:0] numerator_q4;
+    reg signed [12:0] x_calculated_q4;
+    reg signed [20:0] y_calculated_q4;
+    reg signed [25:0] intersection_screen_x;
+    reg signed [25:0] intersection_screen_y;
+    reg signed [4:0]  scale_integer;
 
     // Linear intersection calculation. Quadratic intersections are deliberately
     // not guessed: the renderer draws them, but no invalid marker is displayed.
@@ -94,11 +98,12 @@ module graph_controller (
         intersection_y_q4 = 16'sd0;
         coefficient_difference = 0;
         slope_difference = 0;
+        numerator_q4 = 0;
         x_calculated_q4 = 0;
         y_calculated_q4 = 0;
         intersection_screen_x = 0;
         intersection_screen_y = 0;
-        scale_integer = scale_px_per_unit;
+        scale_integer = $signed({1'b0, scale_px_per_unit});
 
         if ((graph_count == 2) && !graph1_type && !graph2_type) begin
             coefficient_difference = $signed(c2) - $signed(c1);
@@ -107,19 +112,21 @@ module graph_controller (
             if (slope_difference == 0) begin
                 graph_status = (coefficient_difference == 0) ? STATUS_SAME : STATUS_PAR;
             end else begin
-                x_calculated_q4 = (coefficient_difference * 16) / slope_difference;
-                y_calculated_q4 = ($signed(b1) * x_calculated_q4) + ($signed(c1) * 16);
+                numerator_q4 = {coefficient_difference, 4'b0000};
+                x_calculated_q4 = numerator_q4 / slope_difference;
+                y_calculated_q4 = ($signed(b1) * $signed(x_calculated_q4)) +
+                                  ($signed(c1) * 6'sd16);
 
                 if ((x_calculated_q4 < -32768) || (x_calculated_q4 > 32767) ||
                     (y_calculated_q4 < -32768) || (y_calculated_q4 > 32767)) begin
                     graph_status = STATUS_ERR;
                 end else begin
-                    intersection_x_q4 = x_calculated_q4;
-                    intersection_y_q4 = y_calculated_q4;
-                    intersection_screen_x = $signed({1'b0, origin_x}) +
-                                            ((x_calculated_q4 * scale_integer) >>> 4);
-                    intersection_screen_y = $signed({1'b0, origin_y}) -
-                                            ((y_calculated_q4 * scale_integer) >>> 4);
+                    intersection_x_q4 = {{3{x_calculated_q4[12]}}, x_calculated_q4};
+                    intersection_y_q4 = y_calculated_q4[15:0];
+                    intersection_screen_x = $signed({18'd0, origin_x}) +
+                                            (($signed(x_calculated_q4) * scale_integer) >>> 4);
+                    intersection_screen_y = $signed({19'd0, origin_y}) -
+                                            (($signed(y_calculated_q4) * scale_integer) >>> 4);
                     if ((intersection_screen_x < 0) || (intersection_screen_x > 95) ||
                         (intersection_screen_y < 0) || (intersection_screen_y > 63)) begin
                         graph_status = STATUS_OUT;
