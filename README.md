@@ -140,9 +140,9 @@ the user presses a control.
 6. With board power off, connect the OLED to `JA`; power on and program the
    generated bitstream.
 
-All paths stored by the project are relative, so the repository can be placed
-anywhere on Windows. If Vivado still reports an invalid path after an older
-copy of the project has been opened, use the portable rebuild script instead:
+The checked-in XPR retains the Windows project location used by the original
+working project. If the repository is stored somewhere else, use the portable
+rebuild script instead of editing paths inside the XPR:
 
 1. Open Vivado without opening an existing project.
 2. In the **Tcl Console**, run
