@@ -1,7 +1,9 @@
 `timescale 1ns / 1ps
 
 // Main menu for the single integrated bitstream.
-module menu_renderer(
+module menu_renderer #(
+    parameter INCLUDE_TEXT = 1
+)(
     input  wire [12:0] pixel_index,
     output reg  [15:0] pixel_data
 );
@@ -39,15 +41,15 @@ module menu_renderer(
 
     reg title_pixel,calc_pixel,graph_pixel;
     always @* begin
-        title_pixel=font_pixel("F",21,7)||font_pixel("P",27,7)||
+        title_pixel=INCLUDE_TEXT&&(font_pixel("F",21,7)||font_pixel("P",27,7)||
                     font_pixel("G",33,7)||font_pixel("A",39,7)||
                     font_pixel("C",51,7)||font_pixel("A",57,7)||
-                    font_pixel("L",63,7)||font_pixel("C",69,7);
-        calc_pixel=font_pixel("L",20,27)||font_pixel("C",38,27)||
-                   font_pixel("A",44,27)||font_pixel("L",50,27)||font_pixel("C",56,27);
-        graph_pixel=font_pixel("D",20,45)||font_pixel("G",38,45)||
+                    font_pixel("L",63,7)||font_pixel("C",69,7));
+        calc_pixel=INCLUDE_TEXT&&(font_pixel("L",20,27)||font_pixel("C",38,27)||
+                   font_pixel("A",44,27)||font_pixel("L",50,27)||font_pixel("C",56,27));
+        graph_pixel=INCLUDE_TEXT&&(font_pixel("D",20,45)||font_pixel("G",38,45)||
                     font_pixel("R",44,45)||font_pixel("A",50,45)||
-                    font_pixel("P",56,45)||font_pixel("H",62,45);
+                    font_pixel("P",56,45)||font_pixel("H",62,45));
 
         pixel_data=16'h0000;
         if((x==0)||(x==95)||(y==0)||(y==63)) pixel_data=16'h001F;

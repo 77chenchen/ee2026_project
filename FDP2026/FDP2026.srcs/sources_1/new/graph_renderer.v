@@ -1,7 +1,9 @@
 `timescale 1ns / 1ps
 
 // Combinational 96x64 RGB565 graph renderer.
-module graph_renderer (
+module graph_renderer #(
+    parameter INCLUDE_TEXT = 1
+) (
     input  wire [12:0] pixel_index,
     input  wire [1:0]  graph_count,
     input  wire        graph1_type,
@@ -296,7 +298,7 @@ module graph_renderer (
         cursor_x_fraction = (cursor_abs_x_q4[3:0] >= 8) ? 5 : 0;
         cursor_y_fraction = (cursor_abs_y_q4[3:0] >= 8) ? 5 : 0;
         coordinate_pixel = 1'b0;
-        if (draw_enable && cursor_enable) begin
+        if (INCLUDE_TEXT && draw_enable && cursor_enable) begin
             coordinate_pixel =
                 font_pixel("X",px,py,52,38) ||
                 ((cursor_x_q4 < 0) && font_pixel("-",px,py,58,38)) ||
@@ -314,7 +316,7 @@ module graph_renderer (
 
         input_abs = (current_input < 0) ? -current_input : current_input;
         input_pixel = 1'b0;
-        if (!draw_enable) begin
+        if (INCLUDE_TEXT && !draw_enable) begin
             if (controller_state == SELECT_COUNT)
                 input_pixel = font_pixel(current_input[0]?"2":"1",px,py,42,20);
             else if (controller_state == SELECT_TYPE) begin
@@ -332,52 +334,54 @@ module graph_renderer (
         end
 
         title_pixel = 1'b0;
-        if (controller_state == SELECT_COUNT) begin
+        if (INCLUDE_TEXT && (controller_state == SELECT_COUNT)) begin
             title_pixel = font_pixel("C",px,py,2,2)||font_pixel("O",px,py,8,2)||
                           font_pixel("U",px,py,14,2)||font_pixel("N",px,py,20,2)||font_pixel("T",px,py,26,2);
-        end else if (controller_state == SELECT_TYPE) begin
+        end else if (INCLUDE_TEXT && (controller_state == SELECT_TYPE)) begin
             title_pixel = font_pixel("T",px,py,2,2)||font_pixel("Y",px,py,8,2)||
                           font_pixel("P",px,py,14,2)||font_pixel("E",px,py,20,2)||
                           font_pixel(current_graph ? "2":"1",px,py,26,2);
-        end else if (controller_state == ENTER_A) begin
+        end else if (INCLUDE_TEXT && (controller_state == ENTER_A)) begin
             title_pixel = font_pixel("A",px,py,2,2)||font_pixel(current_graph ? "2":"1",px,py,8,2);
-        end else if (controller_state == ENTER_B) begin
+        end else if (INCLUDE_TEXT && (controller_state == ENTER_B)) begin
             title_pixel = font_pixel("B",px,py,2,2)||font_pixel(current_graph ? "2":"1",px,py,8,2);
-        end else if (controller_state == ENTER_C) begin
+        end else if (INCLUDE_TEXT && (controller_state == ENTER_C)) begin
             title_pixel = font_pixel("C",px,py,2,2)||font_pixel(current_graph ? "2":"1",px,py,8,2);
-        end else if (controller_state == READY) begin
+        end else if (INCLUDE_TEXT && (controller_state == READY)) begin
             title_pixel = font_pixel("R",px,py,2,2)||font_pixel("E",px,py,8,2)||font_pixel("A",px,py,14,2)||
                           font_pixel("D",px,py,20,2)||font_pixel("Y",px,py,26,2);
-        end else if (controller_state == VIEW_GRAPH) begin
+        end else if (INCLUDE_TEXT && (controller_state == VIEW_GRAPH)) begin
             title_pixel = font_pixel("D",px,py,2,2)||font_pixel("R",px,py,8,2)||
                           font_pixel("A",px,py,14,2)||font_pixel("W",px,py,20,2);
         end
 
         action_pixel = 1'b0;
-        if (controller_state <= ENTER_C) begin
+        if (INCLUDE_TEXT && (controller_state <= ENTER_C)) begin
             action_pixel = font_pixel("C",px,py,2,55)||font_pixel("S",px,py,14,55)||
                            font_pixel("A",px,py,20,55)||font_pixel("V",px,py,26,55)||font_pixel("E",px,py,32,55);
-        end else if (controller_state == READY) begin
+        end else if (INCLUDE_TEXT && (controller_state == READY)) begin
             action_pixel = font_pixel("1",px,py,2,55)||font_pixel("4",px,py,8,55)||
                            font_pixel("D",px,py,20,55)||font_pixel("R",px,py,26,55)||
                            font_pixel("A",px,py,32,55)||font_pixel("W",px,py,38,55);
-        end else begin
+        end else if (INCLUDE_TEXT) begin
             action_pixel = font_pixel("1",px,py,2,55)||font_pixel("5",px,py,8,55)||
                            font_pixel("B",px,py,20,55)||font_pixel("A",px,py,26,55)||
                            font_pixel("C",px,py,32,55)||font_pixel("K",px,py,38,55);
         end
 
         status_pixel = 1'b0;
-        case (graph_status)
-            STATUS_PAR: status_pixel=font_pixel("P",px,py,72,2)||font_pixel("A",px,py,78,2)||font_pixel("R",px,py,84,2);
-            STATUS_SAME:status_pixel=font_pixel("S",px,py,66,2)||font_pixel("A",px,py,72,2)||font_pixel("M",px,py,78,2)||font_pixel("E",px,py,84,2);
-            STATUS_OUT: status_pixel=font_pixel("O",px,py,72,2)||font_pixel("U",px,py,78,2)||font_pixel("T",px,py,84,2);
-            STATUS_ERR: status_pixel=font_pixel("E",px,py,72,2)||font_pixel("R",px,py,78,2)||font_pixel("R",px,py,84,2);
-            default: status_pixel=1'b0;
-        endcase
+        if (INCLUDE_TEXT) begin
+            case (graph_status)
+                STATUS_PAR: status_pixel=font_pixel("P",px,py,72,2)||font_pixel("A",px,py,78,2)||font_pixel("R",px,py,84,2);
+                STATUS_SAME:status_pixel=font_pixel("S",px,py,66,2)||font_pixel("A",px,py,72,2)||font_pixel("M",px,py,78,2)||font_pixel("E",px,py,84,2);
+                STATUS_OUT: status_pixel=font_pixel("O",px,py,72,2)||font_pixel("U",px,py,78,2)||font_pixel("T",px,py,84,2);
+                STATUS_ERR: status_pixel=font_pixel("E",px,py,72,2)||font_pixel("R",px,py,78,2)||font_pixel("R",px,py,84,2);
+                default: status_pixel=1'b0;
+            endcase
+        end
 
-        legend1_pixel=draw_enable&&font_pixel("1",px,py,30,2);
-        legend2_pixel=draw_enable&&(graph_count==2)&&font_pixel("2",px,py,38,2);
+        legend1_pixel=INCLUDE_TEXT&&draw_enable&&font_pixel("1",px,py,30,2);
+        legend2_pixel=INCLUDE_TEXT&&draw_enable&&(graph_count==2)&&font_pixel("2",px,py,38,2);
 
         pixel_data = BLACK;
         if (grid_pixel) pixel_data = GRID;

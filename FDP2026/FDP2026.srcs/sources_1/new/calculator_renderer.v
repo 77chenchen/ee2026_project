@@ -2,7 +2,9 @@
 
 // Combinational 96x64 calculator UI.  It deliberately shares the same
 // pixel_index/RGB565 contract as graph_renderer and the supplied OLED core.
-module calculator_renderer (
+module calculator_renderer #(
+    parameter INCLUDE_TEXT = 1
+) (
     input  wire [12:0] pixel_index,
     input  wire signed [7:0] input_value,
     input  wire signed [7:0] operand_a,
@@ -115,12 +117,13 @@ module calculator_renderer (
     integer px,py;
     always @* begin
         px=x; py=y;
-        header_pixel = font_pixel("C",px,py,28,2)||font_pixel("A",px,py,34,2)||
-                       font_pixel("L",px,py,40,2)||font_pixel("C",px,py,46,2);
+        header_pixel = INCLUDE_TEXT &&
+                       (font_pixel("C",px,py,28,2)||font_pixel("A",px,py,34,2)||
+                        font_pixel("L",px,py,40,2)||font_pixel("C",px,py,46,2));
         label_pixel=0; value_pixel=0; action_pixel=0; error_pixel=0;
         selected_row=0;
 
-        if(sw13_history) begin
+        if(INCLUDE_TEXT && sw13_history) begin
             label_pixel=font_pixel("H",px,py,2,12)||font_pixel("I",px,py,8,12)||
                         font_pixel("S",px,py,14,12)||font_pixel("T",px,py,20,12);
             selected_row=((history_select==0)&&(py>=21)&&(py<=29))||
@@ -136,7 +139,7 @@ module calculator_renderer (
                          font_pixel("E",px,py,62,55);
             error_pixel=recall_error && (font_pixel("O",px,py,66,12)||
                          font_pixel("V",px,py,72,12)||font_pixel("F",px,py,78,12));
-        end else begin
+        end else if(INCLUDE_TEXT) begin
             case(state)
                 INPUT_A: begin
                     label_pixel=font_pixel("I",px,py,2,13)||font_pixel("N",px,py,8,13)||

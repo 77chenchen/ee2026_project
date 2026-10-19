@@ -29,6 +29,9 @@ run_tb calculator_renderer_tb \
 run_tb menu_renderer_tb \
     "$src/menu_renderer.v" "$sim/menu_renderer_tb.v"
 
+run_tb compact_text_renderer_tb \
+    "$src/compact_text_renderer.v" "$sim/compact_text_renderer_tb.v"
+
 run_tb graph_controller_tb \
     "$src/graph_controller.v" "$sim/graph_controller_tb.v"
 
@@ -48,7 +51,7 @@ run_tb integration_tb \
     "$src/calculator_mode.v" "$src/calculator_renderer.v" \
     "$src/graph_controller.v" "$src/mouse_graph_adapter.v" \
     "$src/graph_renderer.v" \
-    "$src/menu_renderer.v" "$src/Oled_Display.v" \
+    "$src/menu_renderer.v" "$src/compact_text_renderer.v" "$src/Oled_Display.v" \
     "$src/My_Top_Module.v" "$sim/integration_tb.v"
 
 echo "All EE2026 simulations passed."

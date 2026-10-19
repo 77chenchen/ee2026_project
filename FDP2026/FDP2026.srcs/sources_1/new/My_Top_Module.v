@@ -232,8 +232,9 @@ module My_Top_Module #(
     wire [15:0] menu_pixel_data,calc_pixel_data,graph_pixel_data;
     wire [6:0] unused_screen_x;
     wire [5:0] unused_screen_y;
-    menu_renderer menu(.pixel_index(pixel_index),.pixel_data(menu_pixel_data));
-    calculator_renderer calc_ui(
+    menu_renderer #(.INCLUDE_TEXT(0)) menu(
+        .pixel_index(pixel_index),.pixel_data(menu_pixel_data));
+    calculator_renderer #(.INCLUDE_TEXT(0)) calc_ui(
         .pixel_index(pixel_index),.input_value(frame_input),.operand_a(frame_calc_a),
         .operand_b(frame_calc_b),.state(frame_calc_state),.operation(frame_calc_operation),
         .operation_valid(frame_calc_operation_valid),.result(frame_calc_result),
@@ -243,7 +244,7 @@ module My_Top_Module #(
         .history_0(frame_history_0),.history_1(frame_history_1),.history_2(frame_history_2),
         .recall_error(frame_recall_error),.pixel_data(calc_pixel_data)
     );
-    graph_renderer graph_ui(
+    graph_renderer #(.INCLUDE_TEXT(0)) graph_ui(
         .pixel_index(pixel_index),.graph_count(frame_graph_count),
         .graph1_type(frame_graph1_type),.graph2_type(frame_graph2_type),
         .a1(frame_a1),.b1(frame_b1),.c1(frame_c1),.a2(frame_a2),.b2(frame_b2),.c2(frame_c2),
@@ -255,8 +256,26 @@ module My_Top_Module #(
         .cursor_enable(frame_cursor_enable),.cursor_x_q4(frame_cursor_x),.cursor_y_q4(frame_cursor_y),
         .screen_x(unused_screen_x),.screen_y(unused_screen_y),.pixel_data(graph_pixel_data)
     );
-    wire [15:0] oled_pixel_data=(frame_mode==MODE_CALC)?calc_pixel_data:
-                                (frame_mode==MODE_GRAPH)?graph_pixel_data:menu_pixel_data;
+    wire compact_text_on;
+    wire [15:0] compact_text_pixel;
+    compact_text_renderer shared_text(
+        .mode(frame_mode),.screen_x(unused_screen_x),.screen_y(unused_screen_y),
+        .input_value(frame_input),.calc_a(frame_calc_a),.calc_state(frame_calc_state),
+        .calc_result(frame_calc_result),.calc_result_valid(frame_calc_result_valid),
+        .calc_div0(frame_calc_div0),.calc_overflow(frame_calc_overflow),
+        .calc_busy(frame_calc_busy),.history_view(frame_history_view),
+        .history_count(frame_history_count),.history_0(frame_history_0),
+        .history_1(frame_history_1),.history_2(frame_history_2),
+        .recall_error(frame_recall_error),.graph_count(frame_graph_count),
+        .graph_state(frame_graph_state),.current_graph(frame_current_graph),
+        .graph_draw(frame_graph_draw),.graph_status(frame_graph_status),
+        .cursor_enable(frame_cursor_enable),.cursor_x_q4(frame_cursor_x),
+        .cursor_y_q4(frame_cursor_y),.text_on(compact_text_on),
+        .text_pixel_data(compact_text_pixel)
+    );
+    wire [15:0] background_pixel_data=(frame_mode==MODE_CALC)?calc_pixel_data:
+                                      (frame_mode==MODE_GRAPH)?graph_pixel_data:menu_pixel_data;
+    wire [15:0] oled_pixel_data=compact_text_on?compact_text_pixel:background_pixel_data;
 
     wire oled_cs,oled_sdin,oled_sclk,oled_d_cn,oled_resn,oled_vccen,oled_pmoden;
     Oled_Display oled_unit(
