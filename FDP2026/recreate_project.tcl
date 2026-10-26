@@ -13,22 +13,31 @@ set_property target_language Verilog [current_project]
 
 set design_sources [list \
     [file join $source_dir Oled_Display.v] \
-    [file join $source_dir button_onepulse.v] \
-    [file join $source_dir switch_sync.v] \
+    [file join $source_dir clock_hz.v] \
+    [file join $source_dir debounce.v] \
     [file join $source_dir signed_switch_input.v] \
     [file join $source_dir check_invalid.v] \
     [file join $source_dir check_overflow.v] \
-    [file join $source_dir calculator_mode.v] \
-    [file join $source_dir calculator_renderer.v] \
-    [file join $source_dir graph_controller.v] \
+    [file join $source_dir calculation_history.v] \
+    [file join $source_dir history_renderer.v] \
+    [file join $source_dir owerflow_renderer.v] \
+    [file join $source_dir calculator.v] \
+    [file join $source_dir switch_to_binary.v] \
+    [file join $origin_dir team_sources hanna_2026_10_17 graph_controller.v] \
+    [file join $source_dir graph_cubic_input.v] \
+    [file join $source_dir graph_quadratic_intersections.v] \
+    [file join $source_dir graph_controller_adapter.v] \
+    [file join $source_dir graph_curve_cache.v] \
     [file join $source_dir graph_renderer.v] \
-    [file join $source_dir menu_renderer.v] \
-    [file join $source_dir compact_text_renderer.v] \
+    [file join $source_dir graph_mode_integration.v] \
+    [file join $source_dir right_angle_triangle.v] \
+    [file join $source_dir triangle_renderer.v] \
     [file join $source_dir My_Top_Module.v]]
 
 set simulation_sources [list \
     [file join $sim_dir button_onepulse_tb.v] \
     [file join $sim_dir graph_controller_tb.v] \
+    [file join $sim_dir graph_extensions_tb.v] \
     [file join $sim_dir graph_renderer_tb.v] \
     [file join $sim_dir calculator_mode_tb.v] \
     [file join $sim_dir calculator_renderer_tb.v] \

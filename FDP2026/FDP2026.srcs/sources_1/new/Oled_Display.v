@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-// Course OLED interface; only verified startup/frame-boundary fixes are made.
+// Course OLED interface; verified startup and complete-frame fixes.
 
 // The codes here are adapted from https://github.com/jhol/otl-icoboard-pmodoledrgb-demo/tree/master/fw/sim
 
@@ -150,9 +150,7 @@ function [StateWidth-1:0] fsm_next_state;
     SetColAddress: fsm_next_state = SetRowAddress;
     SetRowAddress: fsm_next_state = WaitNextFrame;
     WaitNextFrame: fsm_next_state = frame_begin ? SendPixel : WaitNextFrame;
-    // Leave SendPixel only after pixel 6143 has completed.  Testing against
-    // PixelCount-1 here skips loading the final (95,63) pixel because the
-    // state's output action is selected from next_state below.
+    // The last pixel must be loaded before leaving SendPixel.
     SendPixel: fsm_next_state = (pixel_index == PixelCount) ?
       PrepareNextFrame : SendPixel;
     default: fsm_next_state = PowerUp;
@@ -181,9 +179,6 @@ assign pixel_index = sending_pixels ?
 always @(negedge clk) begin
   if (reset) begin
     frame_counter <= 0;
-    // On reset state is already PowerUp, so its case arm is not visited when
-    // reset is released.  Preload the delay here to guarantee the required
-    // PMOD power-up settling interval before asserting the OLED reset line.
     delay <= (ClkFreq * PowerDelay) / 1000;
     state <= 0;
     spi_word <= 0;
