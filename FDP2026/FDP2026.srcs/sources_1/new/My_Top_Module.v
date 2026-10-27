@@ -1,245 +1,357 @@
 `timescale 1ns / 1ps
 
-// Group 06 integrated graphical-calculator top level.
-// BTNL enters the calculator, BTND enters Graph Mode and SW15 returns home.
-module My_Top_Module #(
-    parameter integer BUTTON_COUNTER_BITS = 19,
-    parameter integer SWITCH_COUNTER_BITS = 18,
-    // Retained for testbench compatibility.  Mouse hardware is intentionally
-    // omitted from the resource-constrained Basys3 build.
-    parameter integer ENABLE_HARDWARE_MOUSE = 0
-) (
-    input  wire        clk,
-    input  wire [15:0] sw,
-    input  wire        btnU,
-    input  wire        btnD,
-    input  wire        btnL,
-    input  wire        btnR,
-    input  wire        btnC,
-    inout wire        PS2Clk,
-    inout wire        PS2Data,
-    output wire [15:0] led,
-    output wire [7:0]  JA
-);
-    localparam [1:0] MODE_MENU=2'd0, MODE_CALC=2'd1, MODE_GRAPH=2'd2;
+//////////////////////////////////////////////////////////////////////////////////
+//  FILL IN THE FOLLOWING INFORMATION:
+//  STUDENT A NAME: Milla Glännfjord
+//  STUDENT B NAME: Hanna Wahlgren
+//  STUDENT C NAME: Wang Qichen
+//  STUDENT D NAME: Oskar Plogner
+//  group 06 
+//////////////////////////////////////////////////////////////////////////////////
 
-    reg [5:0] power_on_reset_count = 6'd63;
-    always @(posedge clk)
-        if(power_on_reset_count!=0) power_on_reset_count<=power_on_reset_count-1'b1;
-    wire system_reset=(power_on_reset_count!=0);
+module My_Top_Module (input CLOCK,
+                      input [15:0] sw,
+                      input btnU, btnD, btnC, btnL, btnR,
+                      output [7:0] JB,
+                      output [15:0] led,
+                      output [7:0] seg,
+                      output [3:0] an);
 
-    reg [3:0] oled_clock_divider=0;
-    always @(posedge clk) oled_clock_divider<=oled_clock_divider+1'b1;
-    wire clk6p25m=oled_clock_divider[3];
-
-    wire btnU_pressed,btnD_pressed,btnL_pressed,btnR_pressed,btnC_pressed;
-    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_u(.clk(clk),.reset(system_reset),.button_in(btnU),.pressed(btnU_pressed));
-    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_d(.clk(clk),.reset(system_reset),.button_in(btnD),.pressed(btnD_pressed));
-    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_l(.clk(clk),.reset(system_reset),.button_in(btnL),.pressed(btnL_pressed));
-    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_r(.clk(clk),.reset(system_reset),.button_in(btnR),.pressed(btnR_pressed));
-    button_onepulse #(.COUNTER_BITS(BUTTON_COUNTER_BITS)) db_c(.clk(clk),.reset(system_reset),.button_in(btnC),.pressed(btnC_pressed));
-
-    wire sw13_level,sw14_level,sw15_level;
-    wire unused_r13,unused_f13,unused_r14,unused_f14,unused_r15,unused_f15;
-    switch_sync #(.COUNTER_BITS(SWITCH_COUNTER_BITS)) ss13(.clk(clk),.reset(system_reset),.async_in(sw[13]),.level(sw13_level),.rising(unused_r13),.falling(unused_f13));
-    switch_sync #(.COUNTER_BITS(SWITCH_COUNTER_BITS)) ss14(.clk(clk),.reset(system_reset),.async_in(sw[14]),.level(sw14_level),.rising(unused_r14),.falling(unused_f14));
-    switch_sync #(.COUNTER_BITS(SWITCH_COUNTER_BITS)) ss15(.clk(clk),.reset(system_reset),.async_in(sw[15]),.level(sw15_level),.rising(unused_r15),.falling(unused_f15));
-    wire signed [7:0] signed_switch_value;
-    signed_switch_input signed_input(.clk(clk),.reset(system_reset),.switches(sw[7:0]),.value(signed_switch_value));
-
-    reg [1:0] mode=MODE_MENU;
-    always @(posedge clk) begin
-        if(system_reset) mode<=MODE_MENU;
-        else if((mode!=MODE_MENU)&&sw15_level) mode<=MODE_MENU;
-        else if((mode==MODE_MENU)&&!sw15_level) begin
-            if(btnL_pressed) mode<=MODE_CALC;
-            else if(btnD_pressed) mode<=MODE_GRAPH;
-        end
-    end
-
-    wire calc_active=(mode==MODE_CALC);
-    wire graph_active=(mode==MODE_GRAPH);
-
-    // Calculator: four operations, signed input and error checking.  The
-    // optional history extension is disabled in the small-device build.
-    wire [2:0] calc_state;
-    wire signed [7:0] calc_a,calc_b;
-    wire [1:0] calc_operation;
-    wire calc_operation_valid;
-    wire signed [15:0] calc_result;
-    wire calc_result_valid,calc_div0,calc_overflow,calc_busy;
-    wire [1:0] calc_history_count,calc_history_select;
-    wire signed [15:0] calc_history_0,calc_history_1,calc_history_2;
-    wire calc_recall_error;
-    calculator_mode #(.ENABLE_HISTORY(0)) calculator_core(
-        .clk(clk),.reset(system_reset),
-        .btnC_pressed(calc_active&&btnC_pressed),.btnU_pressed(calc_active&&btnU_pressed),
-        .btnD_pressed(calc_active&&btnD_pressed),.btnL_pressed(calc_active&&btnL_pressed),
-        .btnR_pressed(calc_active&&btnR_pressed),
-        .sw13_history(1'b0),.sw14_new(calc_active&&sw14_level),
-        .input_value(signed_switch_value),.state(calc_state),.operand_a(calc_a),
-        .operand_b(calc_b),.operation(calc_operation),.operation_valid(calc_operation_valid),
-        .result(calc_result),.result_valid(calc_result_valid),.divide_by_zero(calc_div0),
-        .overflow(calc_overflow),.busy(calc_busy),.history_count(calc_history_count),
-        .history_select(calc_history_select),.history_0(calc_history_0),
-        .history_1(calc_history_1),.history_2(calc_history_2),
-        .recall_error(calc_recall_error)
-    );
-
-    // Graph controller and mathematics from Oskar, renderer from Wang.
-    wire [1:0] graph_count;
-    wire graph1_type,graph2_type;
-    wire signed [7:0] a1,b1,c1,a2,b2,c2;
-    wire [2:0] graph_state;
-    wire current_graph,graph_ready,graph_draw;
-    wire [3:0] graph_scale;
-    wire [6:0] graph_origin_x;
-    wire [5:0] graph_origin_y;
-    wire signed [15:0] cursor_x_q4,cursor_y_q4;
-    wire [2:0] graph_status;
-    wire intersection_valid;
-    wire signed [15:0] intersection_x_q4,intersection_y_q4;
-
-    graph_controller graph_core(
-        .clk(clk),.reset(system_reset||!graph_active),
-        .btnC_pressed(graph_active&&btnC_pressed),.btnU_pressed(graph_active&&btnU_pressed),
-        .btnD_pressed(graph_active&&btnD_pressed),.btnL_pressed(graph_active&&btnL_pressed),
-        .btnR_pressed(graph_active&&btnR_pressed),.sw0(sw[0]),
-        .sw12_cursor(1'b0),.sw13_zoom(sw13_level),.sw14(sw14_level),
-        .input_value(signed_switch_value),
-        .mouse_zoom_in(1'b0),.mouse_zoom_out(1'b0),
-        .mouse_recenter(1'b0),.mouse_reset_view(1'b0),
-        .mouse_screen_x(7'd48),.mouse_screen_y(6'd32),
-        .graph_count(graph_count),
-        .graph1_type(graph1_type),.graph2_type(graph2_type),
-        .a1(a1),.b1(b1),.c1(c1),.a2(a2),.b2(b2),.c2(c2),
-        .state(graph_state),.current_graph(current_graph),.ready(graph_ready),.draw(graph_draw),
-        .scale_px_per_unit(graph_scale),.origin_x(graph_origin_x),.origin_y(graph_origin_y),
-        .cursor_x_q4(cursor_x_q4),.cursor_y_q4(cursor_y_q4),
-        .graph_status(graph_status),.intersection_valid(intersection_valid),
-        .intersection_x_q4(intersection_x_q4),.intersection_y_q4(intersection_y_q4)
-    );
-
-    assign PS2Clk=1'bz;
-    assign PS2Data=1'bz;
-
+    wire clk6p25m;
     wire [12:0] pixel_index;
-    wire frame_begin,sending_pixels,sample_pixel;
+    wire frame_begin, sending_pixels, sample_pixel;
+    wire oled_cs, oled_sdin, oled_sclk, oled_d_cn;
+    wire oled_resn, oled_vccen, oled_pmoden;
+    
+    clock_hz clk_6_25 (.HZ(6_250_000),
+                       .CLOCK(CLOCK),
+                       .SLOW_CLOCK(clk6p25m) 
+                        );
+    wire [6:0] x;
+    wire [5:0] y;
+    
+    assign x = pixel_index % 96;
+    assign y = pixel_index / 96;
+    
+    localparam BLACK  = 16'h0000;
+    localparam WHITE  = 16'hFFFF;
+    localparam GREEN  = 16'h07E0;
+    localparam ORANGE = 16'hFF60;
+    
+    wire [15:0] oled_data;
+        
+    // oleds for different modules 
+    // Driven only by the Graph-module integration below.
+    wire [15:0] oled_data_graph;
+    wire [15:0] oled_data_calculator;
+    wire [15:0] oled_data_triangle;
+    reg  [15:0] oled_data_menu;
+    
+    assign JB[0] = oled_cs;
+    assign JB[1] = oled_sdin;
+    assign JB[3] = oled_sclk;
+    assign JB[4] = oled_d_cn;
+    assign JB[5] = oled_resn;
+    assign JB[6] = oled_vccen;
+    assign JB[7] = oled_pmoden;
+    
+    Oled_Display oled (
+        .clk(clk6p25m),
+        .reset(1'b0),
 
-    // Snapshot all renderer inputs at a frame boundary.  This prevents a
-    // button press from producing a half-old/half-new OLED frame.
-    reg [1:0] frame_mode;
-    reg signed [7:0] frame_input,frame_calc_a,frame_calc_b;
-    reg [2:0] frame_calc_state;
-    reg [1:0] frame_calc_operation;
-    reg frame_calc_operation_valid;
-    reg signed [15:0] frame_calc_result;
-    reg frame_calc_result_valid,frame_calc_div0,frame_calc_overflow,frame_calc_busy;
-    reg [1:0] frame_graph_count;
-    reg frame_graph1_type,frame_graph2_type,frame_current_graph,frame_graph_draw;
-    reg signed [7:0] frame_a1,frame_b1,frame_c1,frame_a2,frame_b2,frame_c2;
-    reg [2:0] frame_graph_state,frame_graph_status;
-    reg frame_intersection_valid;
-    reg signed [15:0] frame_ix,frame_iy;
-    reg [3:0] frame_scale;
-    reg [6:0] frame_origin_x;
-    reg [5:0] frame_origin_y;
+        .frame_begin(frame_begin),
+        .sending_pixels(sending_pixels),
+        .sample_pixel(sample_pixel),
 
-    always @(posedge clk6p25m) begin
-        if(system_reset) begin
-            frame_mode<=MODE_MENU; frame_input<=0; frame_calc_state<=0;
-            frame_graph_draw<=0; frame_intersection_valid<=0;
-        end else if(frame_begin) begin
-            frame_mode<=mode;
-            frame_input<=signed_switch_value;
-            frame_calc_a<=calc_a; frame_calc_b<=calc_b; frame_calc_state<=calc_state;
-            frame_calc_operation<=calc_operation; frame_calc_operation_valid<=calc_operation_valid;
-            frame_calc_result<=calc_result; frame_calc_result_valid<=calc_result_valid;
-            frame_calc_div0<=calc_div0; frame_calc_overflow<=calc_overflow; frame_calc_busy<=calc_busy;
-            frame_graph_count<=graph_count; frame_graph1_type<=graph1_type; frame_graph2_type<=graph2_type;
-            frame_a1<=a1; frame_b1<=b1; frame_c1<=c1; frame_a2<=a2; frame_b2<=b2; frame_c2<=c2;
-            frame_graph_state<=graph_state; frame_current_graph<=current_graph; frame_graph_draw<=graph_draw;
-            frame_graph_status<=graph_status; frame_intersection_valid<=intersection_valid;
-            frame_ix<=intersection_x_q4; frame_iy<=intersection_y_q4; frame_scale<=graph_scale;
-            frame_origin_x<=graph_origin_x; frame_origin_y<=graph_origin_y;
+        .pixel_index(pixel_index),
+        .pixel_data(oled_data),
+
+        .cs(oled_cs),
+        .sdin(oled_sdin),
+        .sclk(oled_sclk),
+        .d_cn(oled_d_cn),
+        .resn(oled_resn),
+        .vccen(oled_vccen),
+        .pmoden(oled_pmoden)
+    );
+    
+    wire db_btnU;
+    wire db_btnD;
+    wire db_btnL;
+    wire db_btnR;
+    wire db_btnC;
+    
+    function [34:0] letter_pattern;
+            input [7:0] character;
+        
+            begin
+                case (character)
+                    "A": letter_pattern = 35'b01110_10001_10001_11111_10001_10001_10001;
+                    "B": letter_pattern = 35'b11110_10001_10001_11110_10001_10001_11110;
+                    "C": letter_pattern = 35'b01111_10000_10000_10000_10000_10000_01111;
+                    "E": letter_pattern = 35'b11111_10000_10000_11110_10000_10000_11111;
+                    "G": letter_pattern = 35'b01111_10000_10000_10111_10001_10001_01111;
+                    "H": letter_pattern = 35'b10001_10001_10001_11111_10001_10001_10001;
+                    "I": letter_pattern = 35'b11111_00100_00100_00100_00100_00100_11111;
+                    "L": letter_pattern = 35'b10000_10000_10000_10000_10000_10000_11111;
+                    "M": letter_pattern = 35'b10001_11011_10101_10101_10001_10001_10001;
+                    "N": letter_pattern = 35'b10001_11001_10101_10011_10001_10001_10001;
+                    "O": letter_pattern = 35'b01110_10001_10001_10001_10001_10001_01110;
+                    "P": letter_pattern = 35'b11110_10001_10001_11110_10000_10000_10000;
+                    "R": letter_pattern = 35'b11110_10001_10001_11110_10100_10010_10001;
+                    "T": letter_pattern = 35'b11111_00100_00100_00100_00100_00100_00100;
+                    "U": letter_pattern = 35'b10001_10001_10001_10001_10001_10001_01110;
+                    default: letter_pattern = 35'b0;
+                endcase
+            end
+        endfunction 
+        
+        
+        function draw_char;
+            input [7:0] character;
+            input [6:0] x;
+            input [5:0] y;
+            input [6:0] xpos;
+            input [5:0] ypos;
+        
+            reg [34:0] pattern;
+            reg [2:0] row_index;
+            reg [2:0] col_index;
+        
+            begin
+                draw_char = 0;
+                pattern = letter_pattern(character);
+        
+                if (x >= xpos && x < xpos+5 &&
+                    y >= ypos && y < ypos+7) begin
+        
+                    col_index = x - xpos;
+                    row_index = y - ypos;
+        
+                    draw_char = pattern[34 - row_index*5 - col_index];
+                end
+            end
+        endfunction
+    
+            
+        function draw_word;
+            input [1:0] word_id;
+            input [6:0] x;
+            input [5:0] y;
+            input [6:0] xpos;
+            input [5:0] ypos;
+        
+            begin
+                draw_word = 0;
+        
+                case (word_id)
+                    // MENU
+                    0: draw_word =
+                        draw_char("M", x, y, xpos,    ypos) ||
+                        draw_char("E", x, y, xpos+6,  ypos) ||
+                        draw_char("N", x, y, xpos+12, ypos) ||
+                        draw_char("U", x, y, xpos+18, ypos);
+        
+                    // CALCULATOR
+                    1: draw_word =
+                        draw_char("C", x, y, xpos,    ypos) ||
+                        draw_char("A", x, y, xpos+6,  ypos) ||
+                        draw_char("L", x, y, xpos+12, ypos) ||
+                        draw_char("C", x, y, xpos+18, ypos) ||
+                        draw_char("U", x, y, xpos+24, ypos) ||
+                        draw_char("L", x, y, xpos+30, ypos) ||
+                        draw_char("A", x, y, xpos+36, ypos) ||
+                        draw_char("T", x, y, xpos+42, ypos) ||
+                        draw_char("O", x, y, xpos+48, ypos) ||
+                        draw_char("R", x, y, xpos+54, ypos);
+        
+                    // GRAPH
+                    2: draw_word =
+                        draw_char("G", x, y, xpos,    ypos) ||
+                        draw_char("R", x, y, xpos+6,  ypos) ||
+                        draw_char("A", x, y, xpos+12, ypos) ||
+                        draw_char("P", x, y, xpos+18, ypos) ||
+                        draw_char("H", x, y, xpos+24, ypos);
+        
+                    // TRIANGLE
+                    3: draw_word =
+                        draw_char("T", x, y, xpos,    ypos) ||
+                        draw_char("R", x, y, xpos+6,  ypos) ||
+                        draw_char("I", x, y, xpos+12, ypos) ||
+                        draw_char("A", x, y, xpos+18, ypos) ||
+                        draw_char("N", x, y, xpos+24, ypos) ||
+                        draw_char("G", x, y, xpos+30, ypos) ||
+                        draw_char("L", x, y, xpos+36, ypos) ||
+                        draw_char("E", x, y, xpos+42, ypos);
+                endcase
+            end
+        endfunction
+        
+          
+    function draw_arrow;
+        input [6:0] x;
+        input [5:0] y;
+        input [6:0] xpos;
+        input [5:0] ypos;
+    
+        begin
+            draw_arrow =
+                ((x == xpos)   && (y >= ypos && y <= ypos+6)) ||
+                ((x == xpos+1) && (y >= ypos+1 && y <= ypos+5)) ||
+                ((x == xpos+2) && (y >= ypos+2 && y <= ypos+4)) ||
+                ((x == xpos+3) && (y == ypos+3));
         end
-    end
-
-    wire [15:0] menu_pixel_data,calc_pixel_data,graph_pixel_data;
-    wire [6:0] unused_screen_x;
-    wire [5:0] unused_screen_y;
-    menu_renderer #(.INCLUDE_TEXT(0)) menu(
-        .pixel_index(pixel_index),.pixel_data(menu_pixel_data));
-    calculator_renderer #(.INCLUDE_TEXT(0)) calc_ui(
-        .pixel_index(pixel_index),.input_value(frame_input),.operand_a(frame_calc_a),
-        .operand_b(frame_calc_b),.state(frame_calc_state),.operation(frame_calc_operation),
-        .operation_valid(frame_calc_operation_valid),.result(frame_calc_result),
-        .result_valid(frame_calc_result_valid),.divide_by_zero(frame_calc_div0),
-        .overflow(frame_calc_overflow),.busy(frame_calc_busy),.sw13_history(1'b0),
-        .history_count(2'd0),.history_select(2'd0),
-        .history_0(16'sd0),.history_1(16'sd0),.history_2(16'sd0),
-        .recall_error(1'b0),.pixel_data(calc_pixel_data)
+    endfunction  
+        
+        
+    // DEBOUNCE:
+    debounce dbU(.clk(CLOCK),
+                 .btn(btnU),
+                 .btn_pressed(db_btnU));
+                
+    debounce dbD(.clk(CLOCK),
+                 .btn(btnD),
+                 .btn_pressed(db_btnD));
+                
+    debounce dbL(.clk(CLOCK),
+                 .btn(btnL),
+                 .btn_pressed(db_btnL));
+                
+    debounce dbR(.clk(CLOCK),
+                 .btn(btnR),
+                 .btn_pressed(db_btnR));
+                
+    debounce dbC(.clk(CLOCK),
+                 .btn(btnC),
+                 .btn_pressed(db_btnC));
+    
+    // MENU: arrow going up or down with btnU/btnD
+    //       showing which program to use
+    
+    reg [1:0] arrow  = 2'b00;
+    
+    localparam state_nothing    = 2'b00;
+    localparam state_calculator = 2'b01;
+    localparam state_graph      = 2'b10;
+    localparam state_triangle   = 2'b11;
+    
+    reg [1:0] choice = state_nothing;
+    
+    // Calculator module:
+    calculator calculator_module(.CLOCK(CLOCK),
+                                 .btnU(db_btnU && choice == state_calculator),
+                                 .btnD(db_btnD && choice == state_calculator),
+                                 .btnL(db_btnL && choice == state_calculator),
+                                 .btnR(db_btnR && choice == state_calculator),
+                                 .btnC(db_btnC && choice == state_calculator),
+                                 .sw(sw[10:0]),
+                                 .SW13(sw[13]),
+                                 .SW14(sw[14]),
+                                 .SW15(sw[15]),
+                                 .pixel_index(pixel_index),
+                                 .oled_data(oled_data_calculator),
+                                 .an(an[3:0]),
+                                 .seg(seg[7:0])
     );
-    graph_renderer #(.INCLUDE_TEXT(0)) graph_ui(
-        .pixel_index(pixel_index),.graph_count(frame_graph_count),
-        .graph1_type(frame_graph1_type),.graph2_type(frame_graph2_type),
-        .a1(frame_a1),.b1(frame_b1),.c1(frame_c1),.a2(frame_a2),.b2(frame_b2),.c2(frame_c2),
-        .current_input(frame_input),
-        .controller_state(frame_graph_state),.current_graph(frame_current_graph),
-        .draw_enable(frame_graph_draw),.graph_status(frame_graph_status),
-        .intersection_valid(frame_intersection_valid),.intersection_x_q4(frame_ix),.intersection_y_q4(frame_iy),
-        .scale_px_per_unit(frame_scale),.origin_x(frame_origin_x),.origin_y(frame_origin_y),
-        .cursor_enable(1'b0),.cursor_x_q4(16'sd0),.cursor_y_q4(16'sd0),
-        .screen_x(unused_screen_x),.screen_y(unused_screen_y),.pixel_data(graph_pixel_data)
+    
+    // Graph-module:
+    graph_mode_integration graphnator(
+        .CLOCK(CLOCK),
+        .active(choice == state_graph),
+        .btnU(db_btnU && choice == state_graph),
+        .btnD(db_btnD && choice == state_graph),
+        .btnL(db_btnL && choice == state_graph),
+        .btnR(db_btnR && choice == state_graph),
+        .btnC(db_btnC && choice == state_graph),
+        .sw(sw),
+        .frame_begin(frame_begin),
+        .pixel_index(pixel_index),
+        .oled_data(oled_data_graph)
     );
-    wire compact_text_on;
-    wire [15:0] compact_text_pixel;
-    compact_text_renderer shared_text(
-        .mode(frame_mode),.screen_x(unused_screen_x),.screen_y(unused_screen_y),
-        .input_value(frame_input),.calc_a(frame_calc_a),.calc_state(frame_calc_state),
-        .calc_result(frame_calc_result),.calc_result_valid(frame_calc_result_valid),
-        .calc_div0(frame_calc_div0),.calc_overflow(frame_calc_overflow),
-        .calc_busy(frame_calc_busy),.history_view(1'b0),
-        .history_count(2'd0),.history_0(16'sd0),
-        .history_1(16'sd0),.history_2(16'sd0),
-        .recall_error(1'b0),.graph_count(frame_graph_count),
-        .graph_state(frame_graph_state),.current_graph(frame_current_graph),
-        .graph_draw(frame_graph_draw),.graph_status(frame_graph_status),
-        .cursor_enable(1'b0),.cursor_x_q4(16'sd0),
-        .cursor_y_q4(16'sd0),.text_on(compact_text_on),
-        .text_pixel_data(compact_text_pixel)
-    );
-    wire [15:0] background_pixel_data=(frame_mode==MODE_CALC)?calc_pixel_data:
-                                      (frame_mode==MODE_GRAPH)?graph_pixel_data:menu_pixel_data;
-    wire [15:0] oled_pixel_data=compact_text_on?compact_text_pixel:background_pixel_data;
-
-    wire oled_cs,oled_sdin,oled_sclk,oled_d_cn,oled_resn,oled_vccen,oled_pmoden;
-    Oled_Display oled_unit(
-        .clk(clk6p25m),.reset(system_reset),.frame_begin(frame_begin),
-        .sending_pixels(sending_pixels),.sample_pixel(sample_pixel),
-        .pixel_index(pixel_index),.pixel_data(oled_pixel_data),.cs(oled_cs),
-        .sdin(oled_sdin),.sclk(oled_sclk),.d_cn(oled_d_cn),.resn(oled_resn),
-        .vccen(oled_vccen),.pmoden(oled_pmoden)
-    );
-
-    assign JA[0]=oled_cs; assign JA[1]=oled_sdin; assign JA[2]=1'b0; assign JA[3]=oled_sclk;
-    assign JA[4]=oled_d_cn; assign JA[5]=oled_resn; assign JA[6]=oled_vccen; assign JA[7]=oled_pmoden;
-
-    reg [15:0] led_value;
-    always @* begin
-        led_value=16'd0;
-        if(mode==MODE_MENU) led_value[0]=1'b1;
-        else if(mode==MODE_CALC) begin
-            led_value[1]=1'b1; led_value[4:2]=calc_state;
-            led_value[5]=calc_operation_valid; led_value[6]=calc_result_valid;
-            led_value[7]=calc_div0; led_value[8]=calc_overflow;
-            led_value[11]=calc_busy;
-        end else begin
-            led_value[2:0]=graph_state; led_value[3]=graph_ready; led_value[4]=graph_draw;
-            led_value[5]=current_graph; led_value[7:6]=graph_count;
-            led_value[10:8]=graph_status; led_value[11]=intersection_valid;
-            led_value[15:12]=graph_scale;
+    
+    // Triangle module:
+    
+   right_angle_triangle triangle(.CLOCK(CLOCK),
+                                 .btnU(db_btnU && choice == state_triangle),
+                                 .btnD(db_btnD && choice == state_triangle),
+                                 .btnC(db_btnC && choice == state_triangle),
+                                 .sw(sw[6:0]),
+                                 .SW14(sw[14]),
+                                 .pixel_index(pixel_index),
+                                 .oled_data(oled_data_triangle));
+                                 
+    
+    always @(posedge CLOCK) begin
+        
+        // Menu:
+        if (choice == state_nothing) begin    
+            
+            // Move up        
+            if (db_btnU)
+                arrow <= (arrow == 2'b00) ? 2'b00 : (arrow - 1);
+            
+            // Move down
+            else if (db_btnD)
+                arrow <= (arrow == 2'b10) ? 2'b10 : (arrow + 1);                        
+            
+            else if (db_btnC) begin
+                if (arrow == 2'b00)
+                    choice <= state_calculator;
+                else if (arrow == 2'b01)
+                    choice <= state_graph;
+                else if (arrow == 2'b10) 
+                    choice <= state_triangle;
+            end
+        end   
+        
+        // Return from calculator, graph or triangle
+        else if (choice == state_calculator || 
+                 choice == state_graph      ||
+                 choice == state_triangle) begin 
+        
+            if (sw[15]) begin
+                choice <= state_nothing;
+                arrow <= 2'b00;
+            end
         end
+            
     end
-    assign led=led_value;
+    
+        
+    always @(*) begin
+    
+        oled_data_menu = BLACK;
+    
+        // MENU title
+        if (draw_word(0, x, y, 36, 5))
+            oled_data_menu = ORANGE;
+    
+        // CALCULATOR
+        if (draw_word(1, x, y, 20, 20))
+            oled_data_menu = (arrow == 0) ? GREEN : WHITE;
+    
+        // GRAPH
+        if (draw_word(2, x, y, 20, 35))
+            oled_data_menu = (arrow == 1) ? GREEN : WHITE;
+    
+        // TRIANGLE
+        if (draw_word(3, x, y, 20, 50))
+            oled_data_menu = (arrow == 2) ? GREEN : WHITE;
+    
+        // Selection arrow
+        if (draw_arrow(x, y, 10,
+            (arrow == 0) ? 20 :
+            (arrow == 1) ? 35 : 50))
+            oled_data_menu = ORANGE;
+    
+    end
+    
+    assign led = sw;
+    
+    assign oled_data = (choice == state_calculator) ? oled_data_calculator :
+                       (choice == state_graph)      ? oled_data_graph      :
+                       (choice == state_triangle)   ? oled_data_triangle   :
+                                                      oled_data_menu;
+    
 endmodule
+

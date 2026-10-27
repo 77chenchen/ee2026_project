@@ -1,13 +1,26 @@
 `timescale 1ns / 1ps
 
-// Calculator input validation.  All four operations are valid except division
-// by zero; ready allows the caller to distinguish preview from execution.
-module check_invalid (
-    input  wire signed [7:0] operand_b,
-    input  wire              ready,
-    input  wire [1:0]        operation,
-    output wire              invalid
-);
-    localparam [1:0] DIV = 2'd3;
-    assign invalid = !ready || ((operation == DIV) && (operand_b == 0));
+module check_invalid(
+    input [7:0] saved_number_2,
+    input ready,
+    input [1:0] operation, //00=0=+, 01=1=-, 10=2=*, 11=3=/
+    output reg invalid
+    );
+    
+    always @(*) begin
+        //check if both numbers are saved
+        if (ready == 0) begin //=0 not ready
+            invalid = 1; //invalid
+        end
+        
+        //check if division by zero
+        else if (operation == 3 && saved_number_2 == 0) begin //if we choose / and nr 2 = 0
+            invalid = 1; //invalid
+        end
+        
+        //valid calculation
+        else begin
+            invalid = 0;
+        end
+    end
 endmodule

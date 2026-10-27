@@ -1,197 +1,90 @@
-# EE2026 Interactive FPGA Graphical Calculator
+# EE2026 FPGA graphical calculator
 
-This repository contains one integrated Basys3 bitstream design for Group 06.
-The top level combines the work from all four members:
+Group 06's active design targets the Basys3 `xc7a35tcpg236-1` and a 96 × 64
+RGB565 OLED on Pmod JB. The top-level menu and board ports follow Hanna's
+2026-10-26 `My_Top_Module.v`. Her original archive, Milla's sources, and
+Oskar's original `graph_controller.v` are preserved under `FDP2026/team_sources/`.
+Graph extensions live in separate adapter, solver and renderer files.
 
-- Milla: signed switch input, invalid-operation checking and overflow checking.
-- Hanna: four-operation calculator and calculator OLED interface.
-- Oskar: graph input controller, line/quadratic parameters, linear intersection mathematics and view controls.
-- Wang: graph OLED renderer, graph UI and final OLED/top-level integration.
+## Implemented modes
 
-The active Vivado project is `FDP2026/FDP2026.xpr`. The active top module is
-`My_Top_Module`. Development is currently on the local `test` branch.
+- Calculator: signed 8-bit two's-complement input; addition, subtraction,
+  multiplication and division; full result, invalid and overflow displays.
+- Graph: one or two linear `y=Bx+C`, quadratic `y=Ax²+Bx+C`, or cubic
+  `y=Ax³+Bx²+Cx+D` plots. A mixed pair is allowed. Graph 1 is green and
+  Graph 2 orange, with axes, grid, zoom and pan.
+- Graph intersections: two linear, linear–quadratic and two quadratic graphs.
+  The latter two can have zero, one or two real roots. Visible roots receive
+  white crosses; `PAR`, `SAME`, `OUT`, `NO` or `ERR` is shown when appropriate.
+  Cubic intersections are not implemented; cubic graphs are plot-only.
+- Right-angle triangle mode from Hanna's top-level integration.
 
-## Implemented functions
+## Controls
 
-### Calculator
+In the main menu, `BTNU`/`BTND` move among Calculator, Graph and Triangle;
+`BTNC` enters the highlighted mode. `SW15` returns to the menu. Buttons are
+debounced and routed only to the active mode. `SW7..SW0` represent a signed
+8-bit two's-complement number: for example `1111_1011` means −5.
 
-- Signed 8-bit two's-complement input from `SW7..SW0`.
-- Addition, subtraction, multiplication and division.
-- Full signed 16-bit result display.
-- Division-by-zero error display.
-- Overflow warning when the result is outside the signed 8-bit input range.
-- No FPGA reprogramming is needed between calculations.
+For Graph Mode:
 
-### Graph Mode
+1. At `COUNT`, set `SW0=0` for one graph or `SW0=1` for two, then press `BTNC`.
+2. At `TYPE1` (and `TYPE2` if needed), select line with `SW0=0, SW1=0`,
+   quadratic with `SW0=1, SW1=0`, or cubic with `SW1=1`. Press `BTNC`.
+3. Set each coefficient on `SW7..SW0` and press `BTNC` to save it. A line
+   takes `B,C`; a quadratic takes `A,B,C`; a cubic takes `A,B,C,D`.
+4. At `READY`, lower and then raise `SW14` to draw. In the graph view,
+   `BTNL`/`BTNR` pan horizontally and `BTNU`/`BTND` pan vertically.
+   Holding `SW13` changes the latter buttons to zoom in/out through
+   1, 2, 4 and 8 pixels per unit.
 
-- One or two graphs.
-- Linear functions: `y = Bx + C`.
-- Quadratic functions: `y = Ax^2 + Bx + C`.
-- Green Graph 1 and orange Graph 2.
-- Axes, grid, clipping and continuous line/curve rendering.
-- Exact intersection for two linear functions.
-- `PAR`, `SAME`, `OUT` and `ERR` status overlays.
-- Zoom and pan controls.
-- Input-stage OLED guidance and signed coefficient preview.
+The OLED labels the current input stage and shows the signed switch value.
+At zoom 1 or 2, the grid remains at least eight pixels apart so it does not
+cover the curves. A plot cache is rebuilt after coefficients or view settings
+change; rendering resumes from the next complete OLED frame.
 
-## Hardware controls
+The optional PS/2 mouse and coordinate cursor modules remain in the
+repository, but are excluded from the resource-constrained synthesis top.
 
-### Main menu
+## Build and test
 
-| Control | Action |
-| --- | --- |
-| `BTNL` | Enter Calculator Mode |
-| `BTND` | Enter Graph Mode |
-| `SW15` | Return to the main menu from either mode |
+The active Vivado project is `FDP2026/FDP2026.xpr`, synthesis top
+`My_Top_Module`. If its saved paths do not open on another computer,
+start Vivado without a project and run:
 
-The menu shows `L CALC` in green and `D GRAPH` in orange.
+```tcl
+source {C:/path/to/ee2026_project/FDP2026/recreate_project.tcl}
+```
 
-### Signed switch input
+This builds a portable project at `FDP2026/vivado_rebuilt/FDP2026.xpr`.
+The Basys3 XDC must be active. Connect the OLED to Pmod JB with power off;
+`JB[0:7]` map to CS, SDIN, unused, SCLK, D/C, RESN, VCCEN and PMODEN.
 
-`SW7..SW0` are interpreted as one signed 8-bit two's-complement number:
+On a machine with Icarus Verilog, run:
 
-| Value | `SW7..SW0` |
-| ---: | --- |
-| `5` | `0000_0101` |
-| `-1` | `1111_1111` |
-| `-5` | `1111_1011` |
-| `-128` | `1000_0000` |
-
-Leave a switch value stable briefly before pressing `BTNC`. All buttons and
-mode switches are synchronised/debounced by the design.
-
-### Calculator Mode
-
-1. Set Operand A on `SW7..SW0`; press `BTNC`.
-2. Select the operation:
-   - `BTNU`: add
-   - `BTND`: subtract
-   - `BTNL`: multiply
-   - `BTNR`: divide
-3. Press `BTNC` to confirm the operation.
-4. Set Operand B on `SW7..SW0`; press `BTNC` to calculate.
-5. Raise `SW14` to start a new expression. Lower it before the next use.
-
-An `OVF` message means the full result is valid but outside the signed 8-bit
-input range. `DIV0` means the attempted division was invalid.
-
-### Graph Mode input
-
-1. `COUNT`: set `SW0=0` for one graph or `SW0=1` for two; press `BTNC`.
-2. `TYPE1/TYPE2`: set `SW0=0` for linear or `SW0=1` for quadratic; press `BTNC`.
-3. Enter each signed coefficient on `SW7..SW0`, pressing `BTNC` after each:
-   - Linear: `B`, then `C`.
-   - Quadratic: `A`, then `B`, then `C`.
-4. At `READY`, make sure `SW14` is low, then raise it to draw.
-
-Graph view controls:
-
-| Switch mode | Buttons | Action |
-| --- | --- | --- |
-| `SW13=0` | `BTNU/D/L/R` | Pan vertically/horizontally |
-| `SW13=1` | `BTNU/BTND` | Zoom in/out (`1, 2, 4, 8` pixels per unit) |
-| `SW13=1` | `BTNL/BTNR` | Pan horizontally |
-
-Graph status meanings:
-
-| Status | Meaning |
-| --- | --- |
-| `PAR` | Two linear graphs are parallel |
-| `SAME` | Two linear graphs are identical |
-| `OUT` | The intersection is outside the visible OLED area |
-| `ERR` | The fixed-point intersection result overflowed |
-
-## OLED and Pmod connection
-
-The design uses the supplied `Oled_Display` interface at 6.25 MHz and the
-96 x 64 RGB565 pixel contract. The OLED is connected to Pmod `JA`:
-
-| JA bit | OLED signal |
-| ---: | --- |
-| 0 | `CS` |
-| 1 | `SDIN` |
-| 2 | unused, driven low |
-| 3 | `SCLK` |
-| 4 | `D/C` |
-| 5 | `RESN` |
-| 6 | `VCCEN` |
-| 7 | `PMODEN` |
-
-The OLED driver includes verified fixes for the initial power-settling delay
-and transmission of pixel 6143, so a frame contains all 6144 pixels. Renderer
-state is copied only at frame boundaries to prevent a mixed old/new frame when
-the user presses a control.
-
-## LEDs
-
-- Menu: `LED0` is on.
-- Calculator: `LED1` is on; other LEDs expose calculator state, validity,
-  divide-by-zero, overflow and divider busy state.
-- Graph: LEDs expose controller state, ready/draw, current graph, graph count,
-  graph status, intersection validity and zoom scale.
-
-## Build in Vivado
-
-1. Open `FDP2026/FDP2026.xpr` in Vivado 2025.2 or a compatible version.
-2. Confirm `My_Top_Module` is the synthesis top.
-3. Confirm `Basys3_Master.xdc` is active.
-4. Run **Synthesis**, **Implementation**, then **Generate Bitstream**.
-5. Check timing, DRC and utilization before programming the board.
-6. With board power off, connect the OLED to `JA`; power on and program the
-   generated bitstream.
-
-The checked-in XPR retains the Windows project location used by the original
-working project. If the repository is stored somewhere else, use the portable
-rebuild script instead of editing paths inside the XPR:
-
-1. Open Vivado without opening an existing project.
-2. In the **Tcl Console**, run
-   `source {C:/your/path/ee2026_project/FDP2026/recreate_project.tcl}`.
-3. The script creates and opens
-   `FDP2026/vivado_rebuilt/FDP2026.xpr` with the Basys3 part, active source
-   set, constraints and simulation files already configured.
-
-Use forward slashes in the Tcl command on Windows and keep the braces around
-the complete path, especially when a folder name contains spaces.
-
-Vivado is not installed in the current development environment, so final
-synthesis/timing/bitstream generation and physical Basys3/OLED verification
-must still be run in the lab. The RTL and OLED protocol are covered by the
-simulations below.
-
-## Run simulations
-
-Requirements: `iverilog` and `vvp` on `PATH`.
-
-```bash
+```sh
 ./scripts/run_tests.sh
 ```
 
-The suite checks:
+The suite checks controller input, 0/1/2 intersections, signed cubic and
+quadratic pixels at multiple zoom levels, both markers, OLED reset and all
+6144 transmitted pixels, and routing through Hanna's top-level menu.
 
-- button debounce and one-pulse behaviour;
-- calculator arithmetic, signed division, division by zero and overflow;
-- calculator/menu OLED screens;
-- graph input FSM, linear intersection, parallel/identical/off-screen cases;
-- graph line/quadratic rendering, marker, status, pan and zoom;
-- OLED power/reset timing and a complete 6144-pixel serial frame;
-- integrated menu -> calculator -> menu -> graph -> menu navigation.
+For **actual FPGA resource and timing verification**, open the checked-in
+Vivado project and run this script in Vivado batch mode (adjust the path):
 
-The resource-constrained top level omits the optional PS/2 mouse, calculator
-history and coordinate cursor extensions. Their source files remain in the
-repository history, but they are not included in the Vivado synthesis set.
+```sh
+vivado -mode batch -source C:/path/to/ee2026_project/FDP2026/check_vivado_resources.tcl
+```
 
-## Important source files
+The script resets and reruns synthesis and implementation, checks XC7A35T
+LUT/flip-flop/BRAM/DSP limits and 100 MHz routed setup slack, and writes
+reports to `FDP2026/vivado_resource_reports/`. It does not generate or
+program a bitstream. Vivado is not installed on this development machine;
+simulation passing is **not** a substitute for a passing implementation
+report and on-board OLED check.
 
-- `FDP2026/FDP2026.srcs/sources_1/new/My_Top_Module.v`: integrated top level.
-- `calculator_mode.v`, `calculator_renderer.v`: calculator logic and OLED UI.
-- `graph_controller.v`, `graph_renderer.v`: graph logic and OLED UI.
-- `signed_switch_input.v`, `check_invalid.v`, `check_overflow.v`,
-  `calculation_history.v`: shared input/validation blocks and the optional,
-  disabled history implementation.
-- `Oled_Display.v`: supplied SSD1331 interface with the two verified fixes noted above.
-- `FDP2026/FDP2026.srcs/sim_1/new/`: self-checking testbenches.
-
-Do not use the standalone `Hannas_part` or `sw_to_binary` projects for the final
-bitstream; they are retained only as historical teammate work. Use the main
-`FDP2026.xpr` project.
+The graph curve cache reuses one multiplier across columns. The intersection
+solver also reuses a sequential divider instead of instantiating a wide
+combinational divider. These choices reduce logic use, but only a fresh
+Vivado report can establish whether the final design fits and meets timing.

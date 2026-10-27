@@ -5,6 +5,7 @@
 // design; the previous implementation expanded both for every printed glyph.
 module compact_text_renderer (
     input  wire [1:0] mode,
+    input  wire [1:0] menu_arrow,
     input  wire [6:0] screen_x,
     input  wire [5:0] screen_y,
 
@@ -92,6 +93,7 @@ module compact_text_renderer (
                 "/":case(row)0:glyph_row=1;1:glyph_row=2;2:glyph_row=2;3:glyph_row=4;4:glyph_row=8;5:glyph_row=8;6:glyph_row=16;endcase
                 "=":case(row)2:glyph_row=14;4:glyph_row=14;endcase
                 ".":if(row==6)glyph_row=4;
+                ">":case(row)1:glyph_row=16;2:glyph_row=8;3:glyph_row=4;4:glyph_row=8;5:glyph_row=16;endcase
             endcase
         end
     endfunction
@@ -164,18 +166,21 @@ module compact_text_renderer (
         coordinate_abs_q4=0;
 
         if(mode==MODE_MENU) begin
-            if(char_row==0) begin
+            if(char_row==1) begin
                 selected_color=CYAN;
                 case(char_col)
                     3:selected_char="F";4:selected_char="P";5:selected_char="G";6:selected_char="A";
                     8:selected_char="C";9:selected_char="A";10:selected_char="L";11:selected_char="C";
                 endcase
-            end else if(char_row==3) begin
-                selected_color=GREEN;
-                case(char_col)3:selected_char="L";6:selected_char="C";7:selected_char="A";8:selected_char="L";9:selected_char="C";endcase
-            end else if(char_row==5) begin
-                selected_color=ORANGE;
-                case(char_col)3:selected_char="D";6:selected_char="G";7:selected_char="R";8:selected_char="A";9:selected_char="P";10:selected_char="H";endcase
+            end
+            if(char_row==4) begin
+                selected_color=(menu_arrow==2'd0)?YELLOW:GREEN;
+                if(char_col==2) selected_char=menu_arrow==2'd0 ? ">" : " ";
+                case(char_col)4:selected_char="L";5:selected_char="C";6:selected_char="A";7:selected_char="L";8:selected_char="C";endcase
+            end else if(char_row==6) begin
+                selected_color=(menu_arrow==2'd1)?YELLOW:ORANGE;
+                if(char_col==2) selected_char=menu_arrow==2'd1 ? ">" : " ";
+                case(char_col)4:selected_char="D";5:selected_char="G";6:selected_char="R";7:selected_char="A";8:selected_char="P";9:selected_char="H";endcase
             end
         end else if(mode==MODE_CALC) begin
             if(char_row==0) begin

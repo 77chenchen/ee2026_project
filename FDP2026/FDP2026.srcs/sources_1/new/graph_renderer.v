@@ -4,16 +4,20 @@
 module graph_renderer #(
     parameter INCLUDE_TEXT = 1
 ) (
+    input  wire clk,
     input  wire [12:0] pixel_index,
     input  wire [1:0]  graph_count,
     input  wire        graph1_type,
     input  wire        graph2_type,
+    input  wire        cubic1, cubic2,
     input  wire signed [7:0] a1,
     input  wire signed [7:0] b1,
     input  wire signed [7:0] c1,
+    input  wire signed [7:0] d1,
     input  wire signed [7:0] a2,
     input  wire signed [7:0] b2,
     input  wire signed [7:0] c2,
+    input  wire signed [7:0] d2,
     input  wire signed [7:0] current_input,
     input  wire [2:0]  controller_state,
     input  wire        current_graph,
@@ -22,6 +26,9 @@ module graph_renderer #(
     input  wire        intersection_valid,
     input  wire signed [15:0] intersection_x_q4,
     input  wire signed [15:0] intersection_y_q4,
+    input  wire intersection2_valid,
+    input  wire signed [15:0] intersection2_x_q4,
+    input  wire signed [15:0] intersection2_y_q4,
     input  wire [3:0]  scale_px_per_unit,
     input  wire [6:0]  origin_x,
     input  wire [5:0]  origin_y,
@@ -38,6 +45,7 @@ module graph_renderer #(
     localparam [2:0] ENTER_A      = 3'd2;
     localparam [2:0] ENTER_B      = 3'd3;
     localparam [2:0] ENTER_C      = 3'd4;
+    localparam [2:0] ENTER_D      = 3'd5;
     localparam [2:0] READY        = 3'd6;
     localparam [2:0] VIEW_GRAPH   = 3'd7;
 
@@ -46,6 +54,7 @@ module graph_renderer #(
     localparam [2:0] STATUS_SAME = 3'd2;
     localparam [2:0] STATUS_OUT  = 3'd3;
     localparam [2:0] STATUS_ERR  = 3'd4;
+    localparam [2:0] STATUS_NONE = 3'd5;
 
     localparam [15:0] BLACK  = 16'h0000;
     localparam [15:0] GRID   = 16'h2104;
@@ -60,35 +69,27 @@ module graph_renderer #(
     assign screen_x = pixel_index % 13'd96;
     assign screen_y = pixel_index / 13'd96;
 
-    // Explicitly sized graph datapath.  dx is at most +/-95, so retaining
-    // 32-bit `integer` operands for the polynomial caused four unnecessarily
-    // large cascaded multipliers to be inferred during synthesis.
-    wire signed [8:0] graph_dx = $signed({2'b00, screen_x}) -
-                                 $signed({2'b00, origin_x});
-    wire signed [8:0] graph_dx_previous = graph_dx - 9'sd1;
-    wire signed [17:0] graph_dx_squared = graph_dx * graph_dx;
-    wire signed [17:0] graph_dx_previous_squared =
-        graph_dx_previous * graph_dx_previous;
     wire signed [4:0] graph_scale_signed =
         $signed({1'b0, scale_px_per_unit});
-    wire signed [16:0] graph1_linear = $signed(b1) * graph_dx;
-    wire signed [16:0] graph2_linear = $signed(b2) * graph_dx;
-    wire signed [16:0] graph1_linear_previous =
-        $signed(b1) * graph_dx_previous;
-    wire signed [16:0] graph2_linear_previous =
-        $signed(b2) * graph_dx_previous;
-    wire signed [12:0] graph1_offset = $signed(c1) * graph_scale_signed;
-    wire signed [12:0] graph2_offset = $signed(c2) * graph_scale_signed;
-    wire signed [25:0] graph1_quadratic = $signed(a1) * graph_dx_squared;
-    wire signed [25:0] graph2_quadratic = $signed(a2) * graph_dx_squared;
-    wire signed [25:0] graph1_quadratic_previous =
-        $signed(a1) * graph_dx_previous_squared;
-    wire signed [25:0] graph2_quadratic_previous =
-        $signed(a2) * graph_dx_previous_squared;
+    wire cache_ready;
+    wire [13:0] bounds1,bounds2;
+    graph_curve_cache curve_cache(
+        .clk(clk),.enable(draw_enable),.screen_x(screen_x),
+        .origin_x(origin_x),.origin_y(origin_y),.scale(scale_px_per_unit),
+        .graph1_type(graph1_type),.graph2_type(graph2_type),
+        .cubic1(cubic1),.cubic2(cubic2),
+        .a1(a1),.b1(b1),.c1(c1),.d1(d1),
+        .a2(a2),.b2(b2),.c2(c2),.d2(d2),
+        .ready(cache_ready),.bounds1(bounds1),.bounds2(bounds2)
+    );
     wire signed [20:0] intersection_x_scaled =
         $signed(intersection_x_q4) * graph_scale_signed;
     wire signed [20:0] intersection_y_scaled =
         $signed(intersection_y_q4) * graph_scale_signed;
+    wire signed [20:0] intersection2_x_scaled =
+        $signed(intersection2_x_q4) * graph_scale_signed;
+    wire signed [20:0] intersection2_y_scaled =
+        $signed(intersection2_y_q4) * graph_scale_signed;
     wire signed [20:0] cursor_x_scaled =
         $signed(cursor_x_q4) * graph_scale_signed;
     wire signed [20:0] cursor_y_scaled =
@@ -176,26 +177,15 @@ module graph_renderer #(
     integer ox;
     integer oy;
     integer scale;
-    reg [1:0] scale_shift;
     integer dx;
     integer dy;
-    reg signed [26:0] curve1_y;
-    reg signed [26:0] curve2_y;
-    reg signed [26:0] curve1_y_previous;
-    reg signed [26:0] curve2_y_previous;
-    reg signed [27:0] curve1_screen;
-    reg signed [27:0] curve2_screen;
-    reg signed [27:0] curve1_screen_previous;
-    reg signed [27:0] curve2_screen_previous;
-    reg signed [27:0] curve1_min;
-    reg signed [27:0] curve1_max;
-    reg signed [27:0] curve2_min;
-    reg signed [27:0] curve2_max;
     integer abs_dx;
     integer abs_dy;
     integer grid_mask;
     integer marker_x;
     integer marker_y;
+    integer marker2_x;
+    integer marker2_y;
     integer cursor_x;
     integer cursor_y;
     integer cursor_abs_x_q4;
@@ -225,43 +215,15 @@ module graph_renderer #(
         ox = origin_x;
         oy = origin_y;
         scale = (scale_px_per_unit == 0) ? 1 : scale_px_per_unit;
-        case(scale)
-            2: scale_shift=1;
-            4: scale_shift=2;
-            8: scale_shift=3;
-            default: scale_shift=0;
-        endcase
         dx = px - ox;
         dy = oy - py;
-
-        curve1_y = graph1_linear + graph1_offset;
-        curve2_y = graph2_linear + graph2_offset;
-        curve1_y_previous = graph1_linear_previous + graph1_offset;
-        curve2_y_previous = graph2_linear_previous + graph2_offset;
-        if (graph1_type)
-            curve1_y = curve1_y + (graph1_quadratic >>> scale_shift);
-        if (graph2_type)
-            curve2_y = curve2_y + (graph2_quadratic >>> scale_shift);
-        if (graph1_type)
-            curve1_y_previous = curve1_y_previous +
-                                (graph1_quadratic_previous >>> scale_shift);
-        if (graph2_type)
-            curve2_y_previous = curve2_y_previous +
-                                (graph2_quadratic_previous >>> scale_shift);
-        curve1_screen = oy-curve1_y;
-        curve2_screen = oy-curve2_y;
-        curve1_screen_previous = oy-curve1_y_previous;
-        curve2_screen_previous = oy-curve2_y_previous;
-        curve1_min = (curve1_screen<curve1_screen_previous)?curve1_screen:curve1_screen_previous;
-        curve1_max = (curve1_screen>curve1_screen_previous)?curve1_screen:curve1_screen_previous;
-        curve2_min = (curve2_screen<curve2_screen_previous)?curve2_screen:curve2_screen_previous;
-        curve2_max = (curve2_screen>curve2_screen_previous)?curve2_screen:curve2_screen_previous;
 
         abs_dx = dx;
         abs_dy = dy;
         if (abs_dx < 0) abs_dx = -abs_dx;
         if (abs_dy < 0) abs_dy = -abs_dy;
-        grid_mask = (scale*2)-1;
+        // A two-pixel grid at zoom-out=1 obscured almost the whole image.
+        grid_mask = ((scale < 4) ? 8 : scale*2)-1;
         grid_pixel = draw_enable &&
                      (((abs_dx & grid_mask) == 0) ||
                       ((abs_dy & grid_mask) == 0));
@@ -269,9 +231,11 @@ module graph_renderer #(
         // Join adjacent x-column samples.  This keeps steep lines continuous
         // without turning them into the wide bands produced by slope-sized
         // vertical tolerances.
-        graph1_pixel = draw_enable && (py >= curve1_min-1) && (py <= curve1_max+1);
-        graph2_pixel = draw_enable && (graph_count == 2) &&
-                       (py >= curve2_min-1) && (py <= curve2_max+1);
+        graph1_pixel = draw_enable && cache_ready && bounds1[13:7]!=7'd127 &&
+                       ((py+1) >= bounds1[13:7]) && (py <= (bounds1[6:0]+1));
+        graph2_pixel = draw_enable && cache_ready && (graph_count == 2) &&
+                       bounds2[13:7]!=7'd127 &&
+                       ((py+1) >= bounds2[13:7]) && (py <= (bounds2[6:0]+1));
 
         marker_x = ox + (intersection_x_scaled >>> 4);
         marker_y = oy - (intersection_y_scaled >>> 4);
@@ -280,6 +244,14 @@ module graph_renderer #(
                        ((((px == marker_x) || (py == marker_y)) &&
                          (px-marker_x <= 3) && (px-marker_x >= -3) &&
                          (py-marker_y <= 3) && (py-marker_y >= -3)));
+        marker2_x = ox + (intersection2_x_scaled >>> 4);
+        marker2_y = oy - (intersection2_y_scaled >>> 4);
+        marker_pixel = marker_pixel ||
+                       (draw_enable && intersection2_valid &&
+                        (graph_status == STATUS_OK) &&
+                        ((((px == marker2_x) || (py == marker2_y)) &&
+                          (px-marker2_x <= 3) && (px-marker2_x >= -3) &&
+                          (py-marker2_y <= 3) && (py-marker2_y >= -3))));
 
         cursor_x = ox + (cursor_x_scaled >>> 4);
         cursor_y = oy - (cursor_y_scaled >>> 4);
@@ -320,12 +292,17 @@ module graph_renderer #(
             if (controller_state == SELECT_COUNT)
                 input_pixel = font_pixel(current_input[0]?"2":"1",px,py,42,20);
             else if (controller_state == SELECT_TYPE) begin
-                if (current_input[0])
+                if (current_input[1])
+                    input_pixel=font_pixel("C",px,py,34,20)||font_pixel("U",px,py,40,20)||
+                                font_pixel("B",px,py,46,20)||font_pixel("I",px,py,52,20)||
+                                font_pixel("C",px,py,58,20);
+                else if (current_input[0])
                     input_pixel=font_pixel("Q",px,py,34,20)||font_pixel("U",px,py,40,20)||
                                 font_pixel("A",px,py,46,20)||font_pixel("D",px,py,52,20);
                 else
                     input_pixel=font_pixel("L",px,py,37,20)||font_pixel("I",px,py,43,20)||font_pixel("N",px,py,49,20);
-            end else if ((controller_state==ENTER_A)||(controller_state==ENTER_B)||(controller_state==ENTER_C)) begin
+            end else if ((controller_state==ENTER_A)||(controller_state==ENTER_B)||
+                         (controller_state==ENTER_C)||(controller_state==ENTER_D)) begin
                 input_pixel=((current_input<0)&&font_pixel("-",px,py,34,20))||
                             ((input_abs>=100)&&font_pixel(digit_character((input_abs/100)%10),px,py,40,20))||
                             ((input_abs>=10)&&font_pixel(digit_character((input_abs/10)%10),px,py,46,20))||
@@ -347,6 +324,8 @@ module graph_renderer #(
             title_pixel = font_pixel("B",px,py,2,2)||font_pixel(current_graph ? "2":"1",px,py,8,2);
         end else if (INCLUDE_TEXT && (controller_state == ENTER_C)) begin
             title_pixel = font_pixel("C",px,py,2,2)||font_pixel(current_graph ? "2":"1",px,py,8,2);
+        end else if (INCLUDE_TEXT && (controller_state == ENTER_D)) begin
+            title_pixel = font_pixel("D",px,py,2,2)||font_pixel(current_graph ? "2":"1",px,py,8,2);
         end else if (INCLUDE_TEXT && (controller_state == READY)) begin
             title_pixel = font_pixel("R",px,py,2,2)||font_pixel("E",px,py,8,2)||font_pixel("A",px,py,14,2)||
                           font_pixel("D",px,py,20,2)||font_pixel("Y",px,py,26,2);
@@ -356,7 +335,7 @@ module graph_renderer #(
         end
 
         action_pixel = 1'b0;
-        if (INCLUDE_TEXT && (controller_state <= ENTER_C)) begin
+        if (INCLUDE_TEXT && (controller_state <= ENTER_D)) begin
             action_pixel = font_pixel("C",px,py,2,55)||font_pixel("S",px,py,14,55)||
                            font_pixel("A",px,py,20,55)||font_pixel("V",px,py,26,55)||font_pixel("E",px,py,32,55);
         end else if (INCLUDE_TEXT && (controller_state == READY)) begin
@@ -376,6 +355,7 @@ module graph_renderer #(
                 STATUS_SAME:status_pixel=font_pixel("S",px,py,66,2)||font_pixel("A",px,py,72,2)||font_pixel("M",px,py,78,2)||font_pixel("E",px,py,84,2);
                 STATUS_OUT: status_pixel=font_pixel("O",px,py,72,2)||font_pixel("U",px,py,78,2)||font_pixel("T",px,py,84,2);
                 STATUS_ERR: status_pixel=font_pixel("E",px,py,72,2)||font_pixel("R",px,py,78,2)||font_pixel("R",px,py,84,2);
+                STATUS_NONE:status_pixel=font_pixel("N",px,py,72,2)||font_pixel("O",px,py,78,2);
                 default: status_pixel=1'b0;
             endcase
         end

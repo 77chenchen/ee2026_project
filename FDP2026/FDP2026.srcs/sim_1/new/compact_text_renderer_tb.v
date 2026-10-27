@@ -1,6 +1,7 @@
 `timescale 1ns / 1ps
 module compact_text_renderer_tb;
     reg [1:0] mode=0;
+    reg [1:0] menu_arrow=0;
     reg [6:0] x=0;
     reg [5:0] y=0;
     reg signed [7:0] input_value=-12,calc_a=8;
@@ -15,7 +16,7 @@ module compact_text_renderer_tb;
     wire [15:0] pixel;
 
     compact_text_renderer dut(
-        .mode(mode),.screen_x(x),.screen_y(y),.input_value(input_value),
+        .mode(mode),.menu_arrow(menu_arrow),.screen_x(x),.screen_y(y),.input_value(input_value),
         .calc_a(calc_a),.calc_state(calc_state),.calc_result(calc_result),
         .calc_result_valid(calc_result_valid),.calc_div0(calc_div0),
         .calc_overflow(calc_overflow),.calc_busy(calc_busy),
@@ -29,8 +30,10 @@ module compact_text_renderer_tb;
     );
 
     initial begin
-        mode=0;x=18;y=0;#1;
+        mode=0;x=26;y=8;#1;
         if(!text_on||pixel!=16'h07FF)begin $display("FAIL shared menu font");$finish_and_return(1);end
+        mode=0;menu_arrow=1;x=24;y=48;#1;
+        if(!text_on||pixel!=16'hFFE0)begin $display("FAIL menu selected graph entry");$finish_and_return(1);end
         mode=1;calc_state=0;x=25;y=27;#1;
         if(!text_on||pixel!=16'h07E0)begin $display("FAIL shared signed number");$finish_and_return(1);end
         mode=2;x=54;y=32;#1;

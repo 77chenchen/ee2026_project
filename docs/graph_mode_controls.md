@@ -1,7 +1,8 @@
 # Graph mode controls
 
-The main project boots into a small `D GRAPH` menu. Press `BTND` to enter Graph
-Mode. Raise `SW15` at any point to return to the menu.
+The main project boots into Hanna's two-entry menu. `BTNU` selects the upper
+Calculator entry, `BTND` selects the lower Graph entry, and `BTNC` enters the
+selection. Raise `SW15` at any point to return to the menu.
 
 ## Input flow
 
@@ -15,17 +16,15 @@ Mode. Raise `SW15` at any point to return to the menu.
 
 ## Graph-view controls
 
-| Switch mode | Buttons | Action |
+| Graph view | Buttons | Action |
 | --- | --- | --- |
-| `SW12=0, SW13=0` | `BTNU/D/L/R` | Pan the graph origin. |
-| `SW12=0, SW13=1` | `BTNU/BTND` | Zoom in/out; scale range is 1-8 pixels per unit. |
-| `SW12=0, SW13=1` | `BTNL/BTNR` | Pan horizontally. |
-| `SW12=1` | `BTNU/D/L/R` | Move the cyan cursor in half-unit steps. |
+| default | `BTNU/BTND` | Zoom in/out; scale range is 1-8 pixels per unit. |
+| default | `BTNL/BTNR` | Pan horizontally. |
 
 Line 1 is green and line 2 is orange. Linear intersections are shown in white.
 The renderer displays `PAR`, `SAME`, `OUT`, or `ERR` when an intersection is not
 valid. Quadratic graphs are rendered, but the controller intentionally does not
 claim a quadratic intersection because that requires a separate root solver.
 
-The LEDs expose controller state, readiness, draw state, status, intersection
-validity and zoom scale for board-level debugging.
+The final Hanna-based top level uses `JB[7:0]` for the OLED and does not expose
+the earlier debug LED bus. `SW15` remains the mode-return control.
