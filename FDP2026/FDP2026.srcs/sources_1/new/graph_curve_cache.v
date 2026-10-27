@@ -41,9 +41,9 @@ module graph_curve_cache(
     wire [3:0] triple_shift={scale_shift,1'b0}+{2'b0,scale_shift};
     reg [6:0] column=0;
     reg graph_number=0,previous=1;
-    reg [2:0] phase=0;
-    localparam IDLE=0,PREP=1,MUL1=2,MUL2=3,MUL3=4,
-               EVAL=5,PROJECT=6,STORE=7;
+    reg [3:0] phase=0;
+    localparam IDLE=0,PREP=1,MUL1=2,ADD_B=3,MUL2=4,ADD_C=5,
+               MUL3=6,EVAL=7,PROJECT=8,STORE=9;
     wire signed [8:0] dx=$signed({2'b0,column})-
                           $signed({2'b0,origin_x})-(previous?9'sd1:9'sd0);
     wire signed [7:0] ca=graph_number?a2:a1;
@@ -55,6 +55,7 @@ module graph_curve_cache(
     reg signed [8:0] dx_sample;
     reg signed [27:0] work;
     wire signed [36:0] product=work*dx_sample;
+    reg signed [36:0] product_reg;
     // Horner evaluation stays in pixel coordinates: dx is pixels from the
     // graph origin, while scale=2^scale_shift pixels per graph unit.
     // For cubic, work advances A*dx+B*s, then *dx+C*s^2, then *dx+D*s^3;
@@ -64,9 +65,9 @@ module graph_curve_cache(
     wire signed [36:0] term_d=$signed(cd) <<< triple_shift;
     reg signed [37:0] previous_y;
     wire signed [37:0] final_value =
-        is_cubic ? ((product+term_d) >>> double_shift) :
-        is_quadratic ? ((product+term_c) >>> scale_shift) :
-                       (product+($signed(cc) <<< scale_shift));
+        is_cubic ? ((product_reg+term_d) >>> double_shift) :
+        is_quadratic ? ((product_reg+term_c) >>> scale_shift) :
+                       (product_reg+($signed(cc) <<< scale_shift));
     reg signed [37:0] final_value_reg;
     reg signed [37:0] screen_y_value;
     wire signed [37:0] lower=previous_y<screen_y_value?previous_y:screen_y_value;
@@ -94,20 +95,27 @@ module graph_curve_cache(
                 phase<=MUL1;
             end
             MUL1: begin
+                product_reg<=product;
                 if (!is_cubic && !is_quadratic) phase<=EVAL;
-                else begin
-                    work<=product+term_b;
-                    phase<=MUL2;
-                end
+                else phase<=ADD_B;
+            end
+            ADD_B: begin
+                work<=product_reg+term_b;
+                phase<=MUL2;
             end
             MUL2: begin
+                product_reg<=product;
                 if (is_quadratic) phase<=EVAL;
-                else begin
-                    work<=product+term_c;
-                    phase<=MUL3;
-                end
+                else phase<=ADD_C;
             end
-            MUL3: phase<=EVAL;
+            ADD_C: begin
+                work<=product_reg+term_c;
+                phase<=MUL3;
+            end
+            MUL3: begin
+                product_reg<=product;
+                phase<=EVAL;
+            end
             EVAL: begin
                 final_value_reg<=final_value;
                 phase<=PROJECT;

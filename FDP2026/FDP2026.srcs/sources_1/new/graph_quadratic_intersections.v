@@ -17,10 +17,12 @@ module graph_quadratic_intersections(
 );
     localparam IDLE=0, SQRT=1, DIV_INIT=2, DIV_RUN=3,
                EVAL_SQUARE=4, EVAL_A=5, EVAL_Y=6, RECORD=7, DONE=8,
-               CLASSIFY=9, FORM_DISCRIMINANT=10, CHECK_DISCRIMINANT=11;
+               CLASSIFY=9, FORM_DISCRIMINANT=10, CHECK_DISCRIMINANT=11,
+               SQRT_COMPARE=12, EVAL_Y_SUM=13, PROJECT_VISIBLE=14,
+               EVAL_Y_OFFSET=15, DIV_NUMERATOR=16;
     localparam STATUS_OK=0,STATUS_PAR=1,STATUS_SAME=2,STATUS_OUT=3,
                STATUS_ERR=4,STATUS_NONE=5;
-    reg [3:0] phase;
+    reg [4:0] phase;
     reg signed [8:0] aa,bb,cc;
     reg signed [17:0] b_square,ac_product;
     reg signed [19:0] discriminant_reg;
@@ -28,7 +30,8 @@ module graph_quadratic_intersections(
     reg [13:0] sqrt_value;
     reg [3:0] sqrt_bit;
     wire [13:0] sqrt_trial = sqrt_value | (14'd1 << sqrt_bit);
-    wire [27:0] sqrt_trial_squared = sqrt_trial * sqrt_trial;
+    reg [13:0] sqrt_trial_reg;
+    reg [27:0] sqrt_trial_squared_reg;
     reg [1:0] root_total,root_index;
     reg [17:0] dividend,quotient;
     reg [18:0] remainder;
@@ -39,7 +42,8 @@ module graph_quadratic_intersections(
     wire divide_take = next_remainder >= {9'd0,divisor};
     wire signed [18:0] signed_root = quotient_negative ?
                                       -$signed({1'b0,quotient}) : $signed({1'b0,quotient});
-    reg signed [37:0] root_squared,quadratic_term,y_calc;
+    reg signed [17:0] root_numerator_reg;
+    reg signed [37:0] root_squared,quadratic_term,linear_term,y_partial,y_calc;
     wire [1:0] scale_shift=(scale==8)?2'd3:(scale==4)?2'd2:
                            (scale==2)?2'd1:2'd0;
     wire signed [37:0] extended_root={{19{signed_root[18]}},signed_root};
@@ -51,6 +55,7 @@ module graph_quadratic_intersections(
                    (y_calc>=-38'sd32768) && (y_calc<=38'sd32767) &&
                    (pixel_x>=0) && (pixel_x<=95) &&
                    (pixel_y>=0) && (pixel_y<=63);
+    reg visible_reg;
     reg signed [7:0] old_a1,old_b1,old_c1,old_a2,old_b2,old_c2;
     reg old_q1,old_q2,old_enable;
     reg [3:0] old_scale;
@@ -91,9 +96,12 @@ module graph_quadratic_intersections(
             aa<=0;bb<=0;cc<=0;discriminant_q8<=0;
             b_square<=0;ac_product<=0;discriminant_reg<=0;
             sqrt_value<=0;sqrt_bit<=0;root_total<=0;root_index<=0;
-            dividend<=0;quotient<=0;remainder<=0;
+            sqrt_trial_reg<=0;sqrt_trial_squared_reg<=0;
+            dividend<=0;quotient<=0;remainder<=0;root_numerator_reg<=0;
             divisor<=0;quotient_negative<=0;divide_bit<=0;
-            root_squared<=0;quadratic_term<=0;y_calc<=0;
+            root_squared<=0;quadratic_term<=0;linear_term<=0;
+            y_partial<=0;y_calc<=0;
+            visible_reg<=0;
         end else if (changed) begin
             old_enable<=enable;
             old_a1<=a1;old_b1<=b1;old_c1<=c1;
@@ -112,7 +120,7 @@ module graph_quadratic_intersections(
                         status<=(cc==0)?STATUS_SAME:STATUS_PAR;
                         phase<=DONE;
                     end else begin
-                        root_total<=1;phase<=DIV_INIT;
+                        root_total<=1;phase<=DIV_NUMERATOR;
                     end
                 end else begin
                     b_square<=$signed(bb)*$signed(bb);
@@ -134,16 +142,29 @@ module graph_quadratic_intersections(
                 end
             end
             SQRT: begin
-                if (sqrt_trial_squared<=discriminant_q8)
-                    sqrt_value<=sqrt_trial;
-                if (sqrt_bit==0) phase<=DIV_INIT;
-                else sqrt_bit<=sqrt_bit-1'b1;
+                // Register the trial square before its 28-bit comparison.
+                sqrt_trial_reg<=sqrt_trial;
+                sqrt_trial_squared_reg<=sqrt_trial*sqrt_trial;
+                phase<=SQRT_COMPARE;
+            end
+            SQRT_COMPARE: begin
+                if (sqrt_trial_squared_reg<=discriminant_q8)
+                    sqrt_value<=sqrt_trial_reg;
+                if (sqrt_bit==0) phase<=DIV_NUMERATOR;
+                else begin
+                    sqrt_bit<=sqrt_bit-1'b1;
+                    phase<=SQRT;
+                end
+            end
+            DIV_NUMERATOR: begin
+                root_numerator_reg<=root_numerator;
+                phase<=DIV_INIT;
             end
             DIV_INIT: begin
                 // x=(-B +/- sqrt(D))/2A, with B and sqrt scaled by 16.
                 phase<=DIV_RUN;divide_bit<=17;
-                dividend<=root_numerator<0 ? -root_numerator : root_numerator;
-                quotient_negative<=root_numerator[17] ^ denominator[9];
+                dividend<=root_numerator_reg<0 ? -root_numerator_reg : root_numerator_reg;
+                quotient_negative<=root_numerator_reg[17] ^ denominator[9];
                 divisor<=denominator<0 ? -denominator : denominator;
                 quotient<=0;remainder<=0;
             end
@@ -167,20 +188,31 @@ module graph_quadratic_intersections(
                 phase<=EVAL_Y;
             end
             EVAL_Y: begin
-                y_calc<=quadratic_term+($signed(b1)*$signed(signed_root))+
-                        ($signed(c1) <<< 4);
+                linear_term<=$signed(b1)*$signed(signed_root);
+                phase<=EVAL_Y_SUM;
+            end
+            EVAL_Y_SUM: begin
+                y_partial<=quadratic_term+linear_term;
+                phase<=EVAL_Y_OFFSET;
+            end
+            EVAL_Y_OFFSET: begin
+                y_calc<=y_partial+($signed(c1) <<< 4);
+                phase<=PROJECT_VISIBLE;
+            end
+            PROJECT_VISIBLE: begin
+                visible_reg<=visible;
                 phase<=RECORD;
             end
             RECORD: begin
                 if (root_index==0) begin
-                    x1_q4<=signed_root[15:0];y1_q4<=y_calc[15:0];valid1<=visible;
+                    x1_q4<=signed_root[15:0];y1_q4<=y_calc[15:0];valid1<=visible_reg;
                 end else begin
-                    x2_q4<=signed_root[15:0];y2_q4<=y_calc[15:0];valid2<=visible;
+                    x2_q4<=signed_root[15:0];y2_q4<=y_calc[15:0];valid2<=visible_reg;
                 end
-                if (visible) status<=STATUS_OK;
+                if (visible_reg) status<=STATUS_OK;
                 else if (!valid1) status<=STATUS_OUT;
                 if (root_index+1 < root_total) begin
-                    root_index<=root_index+1'b1;phase<=DIV_INIT;
+                    root_index<=root_index+1'b1;phase<=DIV_NUMERATOR;
                 end else phase<=DONE;
             end
             default: begin end

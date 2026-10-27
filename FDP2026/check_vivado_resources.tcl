@@ -28,7 +28,8 @@ proc check_utilization {report stage} {
     }
 }
 
-# Force a fresh result so an old successful run cannot hide added graph logic.
+# Force both runs to rebuild; report_timing alone can reuse an old routed netlist.
+reset_run impl_1
 reset_run synth_1
 launch_runs synth_1 -jobs 4
 wait_on_run synth_1
@@ -49,12 +50,20 @@ if {![string match "route_design Complete!*" [get_property STATUS [get_runs impl
     error "Implementation did not route: [get_property STATUS [get_runs impl_1]]"
 }
 open_run impl_1
+if {[llength [get_clocks oled_clk]] != 1} {
+    error "The 6.25 MHz OLED generated clock was not created; check the XDC"
+}
 set utilization [report_utilization -return_string]
 set report_file [open [file join $report_dir routed_utilization.txt] w]
 puts $report_file $utilization
 close $report_file
 check_utilization $utilization routed
-report_timing_summary -file [file join $report_dir routed_timing.txt]
+report_timing_summary -report_unconstrained -file [file join $report_dir routed_timing.txt]
+check_timing -file [file join $report_dir timing_coverage.txt]
+report_timing -delay_type max -max_paths 200 -nworst 1 \
+    -file [file join $report_dir worst_setup_paths.txt]
+report_timing -delay_type min -max_paths 20 -nworst 1 \
+    -file [file join $report_dir worst_hold_paths.txt]
 set worst_path [lindex [get_timing_paths -max_paths 1 -delay_type max] 0]
 if {$worst_path eq ""} {
     error "No constrained timing path was found; check the XDC clock constraint"
@@ -62,7 +71,16 @@ if {$worst_path eq ""} {
 set slack [get_property SLACK $worst_path]
 puts "Worst routed setup slack: $slack ns"
 if {$slack < 0} {
-    error "Routed design fails the 100 MHz timing constraint (WNS $slack ns)"
+    error "Routed design fails setup timing (WNS $slack ns)"
+}
+set worst_hold_path [lindex [get_timing_paths -max_paths 1 -delay_type min] 0]
+if {$worst_hold_path eq ""} {
+    error "No constrained hold path was found"
+}
+set hold_slack [get_property SLACK $worst_hold_path]
+puts "Worst routed hold slack: $hold_slack ns"
+if {$hold_slack < 0} {
+    error "Routed design fails hold timing (WHS $hold_slack ns)"
 }
 puts "PASS: XC7A35T resources and routed timing are within limits."
 close_project

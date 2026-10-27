@@ -84,8 +84,10 @@ vivado -mode batch -source C:/path/to/ee2026_project/FDP2026/check_vivado_resour
 ```
 
 The script resets and reruns synthesis and implementation, checks XC7A35T
-LUT/flip-flop/BRAM/DSP limits and 100 MHz routed setup slack, and writes
-reports to `FDP2026/vivado_resource_reports/`. It does not generate or
+LUT/flip-flop/BRAM/DSP limits and routed setup/hold slack, and writes
+`routed_timing.txt`, `timing_coverage.txt`, `worst_setup_paths.txt` and
+`worst_hold_paths.txt` to `FDP2026/vivado_resource_reports/`. The XDC also
+constrains the derived 6.25 MHz OLED clock. The script does not generate or
 program a bitstream. Vivado is not installed on this development machine;
 simulation passing is **not** a substitute for a passing implementation
 report and on-board OLED check.

@@ -43,8 +43,22 @@ module graph_renderer_tb;
         .screen_x(screen_x),.screen_y(screen_y),.pixel_data(pixel_data)
     );
 
+    task wait_cache;
+        integer cycles;
+        begin
+            @(posedge clk);#1;
+            for(cycles=0; !dut.cache_ready && cycles<4000; cycles=cycles+1) begin
+                @(posedge clk);#1;
+            end
+            if(!dut.cache_ready) begin
+                $display("FAIL graph cache timeout phase=%0d",dut.curve_cache.phase);
+                $finish_and_return(1);
+            end
+        end
+    endtask
+
     initial begin
-        repeat(2600) @(posedge clk);#1;
+        wait_cache();
         green_count=0; orange_count=0; white_count=0;
         for(i=0;i<6144;i=i+1) begin
             pixel_index=i; #1;
@@ -71,7 +85,7 @@ module graph_renderer_tb;
 
         status=0; graph1_type=1; a1=1; b1=0; cursor_enable=1;
         intersection_valid=0; origin_x=40; origin_y=20;
-        repeat(2600) @(posedge clk);#1;
+        wait_cache();
         pixel_index=20*96+40; #1;
         if(pixel_data!=16'h07FF) begin
             $display("FAIL cursor/pan got=%h",pixel_data);
@@ -93,10 +107,11 @@ module graph_renderer_tb;
         graph_count=1;graph1_type=0;cubic1=1;
         a1=1;b1=0;c1=0;d1=0;
         origin_x=48;origin_y=32;scale=1;
-        repeat(2600) @(posedge clk);#1;
+        wait_cache();
         pixel_index=31*96+49;#1;
         if(pixel_data!=16'h07E0) begin
-            $display("FAIL cubic zoom-out pixel=%h",pixel_data);
+            $display("FAIL cubic zoom-out pixel=%h ready=%b phase=%0d bounds=%h",
+                     pixel_data,dut.cache_ready,dut.curve_cache.phase,dut.bounds1);
             $finish_and_return(1);
         end
         // No every-other-column grid flood at minimum scale.
@@ -107,7 +122,7 @@ module graph_renderer_tb;
         // Use all four coefficients and a negative x value as well.
         // y=x^3+2x^2-3x+1: f(1)=1 and f(-1)=5.
         b1=2;c1=-3;d1=1;scale=4;
-        repeat(2600) @(posedge clk);#1;
+        wait_cache();
         pixel_index=28*96+52;#1;
         if(pixel_data!=16'h07E0) begin
             $display("FAIL full cubic positive x=%h ready=%b bounds=%h",
@@ -119,7 +134,7 @@ module graph_renderer_tb;
             $display("FAIL full cubic negative x=%h",pixel_data);$finish_and_return(1);
         end
         cubic1=0;graph1_type=1;a1=1;b1=2;c1=-3;d1=0;
-        repeat(2600) @(posedge clk);#1;
+        wait_cache();
         // x=2 => y=5, so screen (56,12) at four pixels per unit.
         pixel_index=12*96+56;#1;
         if(pixel_data!=16'h07E0) begin
@@ -128,7 +143,7 @@ module graph_renderer_tb;
         // Both independent intersection positions are rendered.
         cubic1=0;intersection_valid=1;intersection2_valid=1;
         ix=-16;iy=0;ix2=16;iy2=0;scale=4;
-        repeat(2600) @(posedge clk);#1;
+        wait_cache();
         pixel_index=32*96+44;#1;
         if(pixel_data!=16'hFFFF) begin
             $display("FAIL first marker=%h",pixel_data);$finish_and_return(1);
@@ -144,7 +159,7 @@ module graph_renderer_tb;
         a1=1;b1=0;c1=0;d1=0;
         a2=-1;b2=0;c2=0;d2=0;
         origin_x=48;origin_y=32;scale=1;
-        repeat(3000) @(posedge clk);#1;
+        wait_cache();
         if(!dut.cache_ready) begin
             $display("FAIL two-cubic cache did not finish");$finish_and_return(1);
         end
@@ -159,7 +174,7 @@ module graph_renderer_tb;
             $display("FAIL two-cubic second curve=%h",pixel_data);$finish_and_return(1);
         end
         origin_x=40;scale=4;
-        repeat(3000) @(posedge clk);#1;
+        wait_cache();
         if(!dut.cache_ready) begin
             $display("FAIL two-cubic cache after pan/zoom");$finish_and_return(1);
         end
