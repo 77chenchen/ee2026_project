@@ -74,7 +74,9 @@ The suite checks controller input, 0/1/2 intersections, signed cubic and
 quadratic pixels at multiple zoom levels, both markers, OLED reset and all
 6144 transmitted pixels, and routing through Hanna's top-level menu.
 It also covers calculator signed division, history recall, divide-by-zero,
-overflow and the top-level OLED startup reset.
+overflow and the top-level OLED startup reset. Graph text tests compare all
+256 signed coefficient labels pixel by pixel and check the full signed Q4
+cursor range. Integration tests check the OLED frame snapshot clock edge.
 
 For **actual FPGA resource and timing verification**, open the checked-in
 Vivado project and run this script in Vivado batch mode (adjust the path):
@@ -86,7 +88,10 @@ vivado -mode batch -source C:/path/to/ee2026_project/FDP2026/check_vivado_resour
 The script resets and reruns synthesis and implementation, checks XC7A35T
 LUT/flip-flop/BRAM/DSP limits and routed setup/hold slack, and writes
 `routed_timing.txt`, `timing_coverage.txt`, `worst_setup_paths.txt` and
-`worst_hold_paths.txt` to `FDP2026/vivado_resource_reports/`. The XDC also
+`worst_hold_paths.txt` to `FDP2026/vivado_resource_reports/`. It also writes
+`clock_pair_paths.txt` for each launch/capture clock pair and
+`failing_setup_endpoints.txt` with the worst path to each failing endpoint.
+The XDC also
 constrains the derived 6.25 MHz OLED clock. The script does not generate or
 program a bitstream. Vivado is not installed on this development machine;
 simulation passing is **not** a substitute for a passing implementation
@@ -96,10 +101,11 @@ Graph display parameters are captured on the OLED clock's rising edge; the
 OLED interface samples each rendered pixel on its falling edge. This gives
 the graph renderer half of the 6.25 MHz period instead of a final 100 MHz
 cycle, while keeping the view fixed for the frame.
+Decimal text uses bounded eight-bit comparisons and subtraction instead of
+32-bit signed division/remainder in the pixel path.
 
 The graph curve cache reuses one multiplier across columns and registers the
 coordinate, evaluated height and screen projection before the column-table
-write. The intersection
-solver also reuses a sequential divider instead of instantiating a wide
+write. The intersection solver also reuses a sequential divider instead of instantiating a wide
 combinational divider. These choices reduce logic use, but only a fresh
 Vivado report can establish whether the final design fits and meets timing.

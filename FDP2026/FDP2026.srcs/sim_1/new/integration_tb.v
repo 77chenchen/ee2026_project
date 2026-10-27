@@ -154,8 +154,26 @@ module integration_tb;
         @(posedge dut.clk6p25m);#1;
         release dut.frame_begin;
         if(dut.graphnator.frame_a1!=1 || dut.graphnator.frame_b1!=2 ||
-           dut.graphnator.frame_c1!=-3 || dut.graphnator.frame_d1!=4) begin
+           dut.graphnator.frame_c1!=-3 || dut.graphnator.frame_d1!=4 ||
+           dut.graphnator.frame_input!=4) begin
             $display("FAIL OLED-clock graph frame snapshot");$finish_and_return(1);
+        end
+        force dut.frame_begin=1'b0;
+        sw[7:0]=8'h80;settle_switches();
+        @(negedge dut.clk6p25m);#1;
+        force dut.frame_begin=1'b1;
+        repeat(2)@(posedge CLOCK);#1;
+        if(dut.graphnator.frame_input!=4) begin
+            $display("FAIL frame input changed on a 100 MHz edge");$finish_and_return(1);
+        end
+        @(posedge dut.clk6p25m);#1;
+        release dut.frame_begin;
+        if(dut.graphnator.frame_input!=-128) begin
+            $display("FAIL OLED rising edge did not capture signed input");$finish_and_return(1);
+        end
+        @(negedge dut.clk6p25m);#1;
+        if(dut.graphnator.frame_input!=-128 || dut.graphnator.frame_a1!=1) begin
+            $display("FAIL graph snapshot changed before OLED pixel sampling");$finish_and_return(1);
         end
         sw[15]=1; settle_switches();
         if(dut.choice!=0) begin $display("FAIL graph back"); $finish_and_return(1); end

@@ -64,6 +64,21 @@ report_timing -delay_type max -max_paths 200 -nworst 1 \
     -file [file join $report_dir worst_setup_paths.txt]
 report_timing -delay_type min -max_paths 20 -nworst 1 \
     -file [file join $report_dir worst_hold_paths.txt]
+# A single global top-ten report can hide the 100 MHz arithmetic behind
+# several OLED text paths. Include every clock pairing and failing endpoint.
+set pair_report [file join $report_dir clock_pair_paths.txt]
+set pair_header [open $pair_report w]
+puts $pair_header "Routed setup paths for each launch/capture clock pairing"
+close $pair_header
+foreach launch_clock [get_clocks] {
+    foreach capture_clock [get_clocks] {
+        report_timing -from $launch_clock -to $capture_clock -delay_type max \
+            -max_paths 20 -nworst 1 -append -file $pair_report
+    }
+}
+report_timing -delay_type max -max_paths 100000 -nworst 1 \
+    -slack_lesser_than 0 -path_type summary \
+    -file [file join $report_dir failing_setup_endpoints.txt]
 set worst_path [lindex [get_timing_paths -max_paths 1 -delay_type max] 0]
 if {$worst_path eq ""} {
     error "No constrained timing path was found; check the XDC clock constraint"

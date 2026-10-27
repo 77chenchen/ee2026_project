@@ -9,6 +9,7 @@ module graph_renderer_tb;
     reg cubic1=0,cubic2=0;
     reg signed [7:0] a1=0,b1=1,c1=0,a2=0,b2=-1,c2=0;
     reg signed [7:0] d1=0,d2=0;
+    reg signed [7:0] current_input=0;
     reg [2:0] state=7;
     reg current_graph=0, draw=1;
     reg [2:0] status=0;
@@ -24,6 +25,9 @@ module graph_renderer_tb;
     wire [5:0] screen_y;
     wire [15:0] pixel_data;
     integer i, green_count, orange_count, white_count, red_count;
+    integer input_value, text_x, text_y, magnitude, x_magnitude, y_magnitude;
+    integer x_integer, y_integer;
+    reg expected_text;
 
     graph_renderer dut(
         .clk(clk),
@@ -32,7 +36,7 @@ module graph_renderer_tb;
         .cubic1(cubic1),.cubic2(cubic2),
         .a1(a1),.b1(b1),.c1(c1),.d1(d1),
         .a2(a2),.b2(b2),.c2(c2),.d2(d2),
-        .current_input(8'sd0),
+        .current_input(current_input),
         .controller_state(state),.current_graph(current_graph),.draw_enable(draw),
         .graph_status(status),.intersection_valid(intersection_valid),
         .intersection_x_q4(ix),.intersection_y_q4(iy),
@@ -56,6 +60,31 @@ module graph_renderer_tb;
             end
         end
     endtask
+
+    // Independent digit bitmaps and arithmetic form the display oracle.
+    // Division is deliberately confined to this nonsynthesizable testbench.
+    function reference_digit_pixel;
+        input integer digit, column, row;
+        reg [34:0] pattern;
+        begin
+            case(digit)
+                0: pattern=35'b01110_10001_10011_10101_11001_10001_01110;
+                1: pattern=35'b00100_01100_00100_00100_00100_00100_01110;
+                2: pattern=35'b01110_10001_00001_00010_00100_01000_11111;
+                3: pattern=35'b11110_00001_00001_01110_00001_00001_11110;
+                4: pattern=35'b00010_00110_01010_10010_11111_00010_00010;
+                5: pattern=35'b11111_10000_10000_11110_00001_00001_11110;
+                6: pattern=35'b01110_10000_10000_11110_10001_10001_01110;
+                7: pattern=35'b11111_00001_00010_00100_01000_01000_01000;
+                8: pattern=35'b01110_10001_10001_01110_10001_10001_01110;
+                9: pattern=35'b01110_10001_10001_01111_00001_00001_01110;
+                default: pattern=0;
+            endcase
+            reference_digit_pixel=0;
+            if(column>=0 && column<5 && row>=0 && row<7)
+                reference_digit_pixel=pattern[34-row*5-column];
+        end
+    endfunction
 
     initial begin
         wait_cache();
@@ -187,7 +216,49 @@ module graph_renderer_tb;
             $display("FAIL panned cubic second curve=%h",pixel_data);$finish_and_return(1);
         end
 
-        $display("PASS graph renderer linear, quadratic, two cubics, zoom, pan and two markers");
+        // Exhaust every signed switch value, including -128, and compare
+        // the complete numeric field with independently formatted digits.
+        draw=0;state=2;cursor_enable=0;
+        for(input_value=-128;input_value<=127;input_value=input_value+1) begin
+            current_input=input_value;
+            magnitude=(input_value<0)?-input_value:input_value;
+            for(text_y=20;text_y<27;text_y=text_y+1) begin
+                for(text_x=34;text_x<57;text_x=text_x+1) begin
+                    expected_text=(input_value<0 && text_y==23 && text_x>=35 && text_x<=37) ||
+                        (magnitude>=100 && reference_digit_pixel(magnitude/100,text_x-40,text_y-20)) ||
+                        (magnitude>=10 && reference_digit_pixel((magnitude/10)%10,text_x-46,text_y-20)) ||
+                        reference_digit_pixel(magnitude%10,text_x-52,text_y-20);
+                    pixel_index=text_y*96+text_x;#1;
+                    if(pixel_data !== (expected_text?16'hFFFF:16'h0000)) begin
+                        $display("FAIL input text value=%0d x=%0d y=%0d got=%h expected=%b",
+                                 input_value,text_x,text_y,pixel_data,expected_text);
+                        $finish_and_return(1);
+                    end
+                end
+            end
+        end
+
+        // The same bounded formatter serves signed Q4 cursor coordinates.
+        // Cover both signs, the -32768 magnitude, saturation and fractions.
+        for(i=-32768;i<=32767;i=i+1) begin
+            cursor_x=i;cursor_y=-i-1;#1;
+            x_magnitude=(i<0)?-i:i;
+            y_magnitude=(-i-1<0)?i+1:-i-1;
+            x_integer=x_magnitude/16;y_integer=y_magnitude/16;
+            if(x_integer>99) x_integer=99;
+            if(y_integer>99) y_integer=99;
+            if(dut.cursor_x_digits[7:4] !== x_integer/10 ||
+               dut.cursor_x_digits[3:0] !== x_integer%10 ||
+               dut.cursor_y_digits[7:4] !== y_integer/10 ||
+               dut.cursor_y_digits[3:0] !== y_integer%10 ||
+               dut.cursor_x_fraction !== ((x_magnitude%16>=8)?4'd5:4'd0) ||
+               dut.cursor_y_fraction !== ((y_magnitude%16>=8)?4'd5:4'd0)) begin
+                $display("FAIL Q4 decimal formatting x=%0d y=%0d",cursor_x,cursor_y);
+                $finish_and_return(1);
+            end
+        end
+
+        $display("PASS graph renderer curves, markers, all signed input labels and full Q4 decimal range");
         $finish;
     end
 endmodule
