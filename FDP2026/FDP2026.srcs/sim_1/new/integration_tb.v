@@ -148,6 +148,15 @@ module integration_tb;
         if(!dut.graphnator.controller.draw) begin
             $display("FAIL integrated cubic draw");$finish_and_return(1);
         end
+        // Frame coefficients are captured on the OLED rising edge, leaving
+        // the half-cycle before its falling-edge SPI pixel sample.
+        force dut.frame_begin=1'b1;
+        @(posedge dut.clk6p25m);#1;
+        release dut.frame_begin;
+        if(dut.graphnator.frame_a1!=1 || dut.graphnator.frame_b1!=2 ||
+           dut.graphnator.frame_c1!=-3 || dut.graphnator.frame_d1!=4) begin
+            $display("FAIL OLED-clock graph frame snapshot");$finish_and_return(1);
+        end
         sw[15]=1; settle_switches();
         if(dut.choice!=0) begin $display("FAIL graph back"); $finish_and_return(1); end
 

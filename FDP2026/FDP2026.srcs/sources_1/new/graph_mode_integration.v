@@ -5,6 +5,7 @@
 // frame_begin, so an input change never splits an OLED frame into two views.
 module graph_mode_integration(
     input  wire CLOCK,
+    input  wire OLED_CLOCK,
     input  wire active,
     input  wire btnU, btnD, btnL, btnR, btnC,
     input  wire [15:0] sw,
@@ -72,7 +73,10 @@ module graph_mode_integration(
     reg [6:0] frame_origin_x;
     reg [5:0] frame_origin_y;
 
-    always @(posedge CLOCK) begin
+    // OLED consumes pixels on the falling edge of OLED_CLOCK. Snapshot at
+    // its rising edge, leaving half a 6.25 MHz period for rendering instead
+    // of a final 10 ns 100 MHz cycle before the SPI shift register samples.
+    always @(posedge OLED_CLOCK) begin
         if (reset) begin
             frame_input <= 0; frame_graph_count <= 0;
             frame_graph1_type <= 0; frame_graph2_type <= 0;

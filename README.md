@@ -92,6 +92,11 @@ program a bitstream. Vivado is not installed on this development machine;
 simulation passing is **not** a substitute for a passing implementation
 report and on-board OLED check.
 
+Graph display parameters are captured on the OLED clock's rising edge; the
+OLED interface samples each rendered pixel on its falling edge. This gives
+the graph renderer half of the 6.25 MHz period instead of a final 100 MHz
+cycle, while keeping the view fixed for the frame.
+
 The graph curve cache reuses one multiplier across columns and registers the
 coordinate, evaluated height and screen projection before the column-table
 write. The intersection

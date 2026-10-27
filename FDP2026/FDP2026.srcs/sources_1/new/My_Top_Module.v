@@ -265,6 +265,7 @@ module My_Top_Module (input CLOCK,
     // Graph-module:
     graph_mode_integration graphnator(
         .CLOCK(CLOCK),
+        .OLED_CLOCK(clk6p25m),
         .active(choice == state_graph),
         .btnU(db_btnU && choice == state_graph),
         .btnD(db_btnD && choice == state_graph),
