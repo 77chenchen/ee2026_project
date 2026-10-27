@@ -16,11 +16,14 @@ module graph_quadratic_intersections(
     output reg signed [15:0] x1_q4,y1_q4,x2_q4,y2_q4
 );
     localparam IDLE=0, SQRT=1, DIV_INIT=2, DIV_RUN=3,
-               EVAL_SQUARE=4, EVAL_A=5, EVAL_Y=6, RECORD=7, DONE=8;
+               EVAL_SQUARE=4, EVAL_A=5, EVAL_Y=6, RECORD=7, DONE=8,
+               CLASSIFY=9, FORM_DISCRIMINANT=10, CHECK_DISCRIMINANT=11;
     localparam STATUS_OK=0,STATUS_PAR=1,STATUS_SAME=2,STATUS_OUT=3,
                STATUS_ERR=4,STATUS_NONE=5;
     reg [3:0] phase;
     reg signed [8:0] aa,bb,cc;
+    reg signed [17:0] b_square,ac_product;
+    reg signed [19:0] discriminant_reg;
     reg [27:0] discriminant_q8;
     reg [13:0] sqrt_value;
     reg [3:0] sqrt_bit;
@@ -63,11 +66,13 @@ module graph_quadratic_intersections(
         (graph2_quadratic ? $signed({a2[7],a2}) : 9'sd0);
     wire signed [8:0] difference_b = $signed({b1[7],b1})-$signed({b2[7],b2});
     wire signed [8:0] difference_c = $signed({c1[7],c1})-$signed({c2[7],c2});
-    // Solve (A1-A2)x^2+(B1-B2)x+(C1-C2)=0. The discriminant is scaled
-    // by 256 before integer square-rooting so x retains four fraction bits.
-    wire signed [19:0] discriminant =
-        ($signed(difference_b)*$signed(difference_b)) -
-        (($signed(difference_a)*$signed(difference_c)) <<< 2);
+    // Solve (A1-A2)x^2+(B1-B2)x+(C1-C2)=0. Register each stage of
+    // B^2-4AC: the graph-type input must not pass through both products,
+    // subtraction and root-count control in a single 100 MHz cycle.
+    wire signed [19:0] b_square_extended={{2{b_square[17]}},b_square};
+    wire signed [19:0] ac_product_extended={{2{ac_product[17]}},ac_product};
+    wire signed [19:0] discriminant_from_products =
+        b_square_extended - (ac_product_extended <<< 2);
     wire signed [9:0] denominator = (aa==0) ?
         $signed({bb[8],bb}) : $signed({aa,1'b0});
     wire signed [17:0] scaled_b=$signed(bb) <<< 4;
@@ -84,6 +89,7 @@ module graph_quadratic_intersections(
             old_a2<=0;old_b2<=0;old_c2<=0;old_q1<=0;old_q2<=0;
             old_scale<=0;old_ox<=0;old_oy<=0;
             aa<=0;bb<=0;cc<=0;discriminant_q8<=0;
+            b_square<=0;ac_product<=0;discriminant_reg<=0;
             sqrt_value<=0;sqrt_bit<=0;root_total<=0;root_index<=0;
             dividend<=0;quotient<=0;remainder<=0;
             divisor<=0;quotient_negative<=0;divide_bit<=0;
@@ -98,21 +104,35 @@ module graph_quadratic_intersections(
             valid1<=0;valid2<=0;status<=STATUS_OK;
             root_index<=0;
             if (!enable) phase<=IDLE;
-            else if (difference_a==0) begin
-                if (difference_b==0) begin
-                    status<=(difference_c==0)?STATUS_SAME:STATUS_PAR;
-                    phase<=DONE;
-                end else begin
-                    root_total<=1;phase<=DIV_INIT;
-                end
-            end else if (discriminant<0) begin
-                status<=STATUS_NONE;phase<=DONE;
-            end else begin
-                root_total<=(discriminant==0)?1:2;
-                discriminant_q8<={discriminant[19:0],8'b0};
-                sqrt_value<=0;sqrt_bit<=13;phase<=SQRT;
-            end
+            else phase<=CLASSIFY;
         end else case (phase)
+            CLASSIFY: begin
+                if (aa==0) begin
+                    if (bb==0) begin
+                        status<=(cc==0)?STATUS_SAME:STATUS_PAR;
+                        phase<=DONE;
+                    end else begin
+                        root_total<=1;phase<=DIV_INIT;
+                    end
+                end else begin
+                    b_square<=$signed(bb)*$signed(bb);
+                    ac_product<=$signed(aa)*$signed(cc);
+                    phase<=FORM_DISCRIMINANT;
+                end
+            end
+            FORM_DISCRIMINANT: begin
+                discriminant_reg<=discriminant_from_products;
+                phase<=CHECK_DISCRIMINANT;
+            end
+            CHECK_DISCRIMINANT: begin
+                if (discriminant_reg<0) begin
+                    status<=STATUS_NONE;phase<=DONE;
+                end else begin
+                    root_total<=(discriminant_reg==0)?1:2;
+                    discriminant_q8<={discriminant_reg[19:0],8'b0};
+                    sqrt_value<=0;sqrt_bit<=13;phase<=SQRT;
+                end
+            end
             SQRT: begin
                 if (sqrt_trial_squared<=discriminant_q8)
                     sqrt_value<=sqrt_trial;
