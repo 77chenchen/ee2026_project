@@ -21,6 +21,13 @@ module integration_tb;
     task raw_press_l; begin force dut.db_btnL=1; #1; @(posedge CLOCK); #1; release dut.db_btnL; repeat(2)@(posedge CLOCK); end endtask
     task raw_press_r; begin force dut.db_btnR=1; #1; @(posedge CLOCK); #1; release dut.db_btnR; repeat(2)@(posedge CLOCK); end endtask
     task settle_switches; begin repeat(6)@(posedge CLOCK); end endtask
+    task capture_oled_frame;
+        begin
+            force dut.frame_begin=1'b1;
+            @(posedge dut.clk6p25m);#1;
+            release dut.frame_begin;
+        end
+    endtask
 
     initial begin
         #1;
@@ -43,10 +50,22 @@ module integration_tb;
         if(dut.calculator_module.result!=13) begin
             $display("FAIL Hanna calculator result=%0d",dut.calculator_module.result); $finish_and_return(1);
         end
+        capture_oled_frame();
+        if(dut.calculator_module.frame_result!==16'sd13 ||
+           dut.calculator_module.frame_operand_A!==8'sd8 ||
+           dut.calculator_module.frame_operand_B!==8'sd5 ||
+           dut.calculator_module.frame_history_0!==8'sd13 ||
+           dut.calculator_module.frame_history_count!==2'd1) begin
+            $display("FAIL calculator/history OLED frame snapshot");$finish_and_return(1);
+        end
 
         // Recall the preceding result through SW8, then divide it. This is
         // the exact history-to-result path that failed routed timing.
         sw[14]=1; settle_switches(); sw[14]=0; settle_switches();
+        if(dut.calculator_module.result!==16'sd0 ||
+           dut.calculator_module.frame_result!==16'sd13) begin
+            $display("FAIL live calculator reset changed the displayed frame");$finish_and_return(1);
+        end
         sw[8]=1; sw[7:0]=0; settle_switches(); raw_press_c();
         if(dut.calculator_module.operand_A!=13) begin
             $display("FAIL history recall before division");
@@ -59,6 +78,17 @@ module integration_tb;
             $display("FAIL history division result=%0d",dut.calculator_module.result);
             $finish_and_return(1);
         end
+        sw[13]=1;
+        capture_oled_frame();
+        if(dut.calculator_module.frame_show_history!==1'b1 ||
+           dut.calculator_module.history_screen.count!==2'd2 ||
+           dut.calculator_module.history_screen.history_0!==8'sd6 ||
+           dut.calculator_module.history_screen.history_1!==8'sd13 ||
+           dut.calculator_module.history_screen.history_a0!==8'sd13 ||
+           dut.calculator_module.history_screen.history_b0!==8'sd2) begin
+            $display("FAIL history view did not capture a consistent frame");$finish_and_return(1);
+        end
+        sw[13]=0;
 
         // Also check a negative signed quotient through the full top level.
         sw[14]=1; settle_switches(); sw[14]=0; settle_switches();
@@ -72,6 +102,10 @@ module integration_tb;
                      dut.calculator_module.result,dut.calculator_module.state);
             $finish_and_return(1);
         end
+        if(dut.calculator_module.history_0!==-16'sd25 ||
+           dut.calculator_module.history_screen.history_0!==8'sd6) begin
+            $display("FAIL history renderer changed before the next frame");$finish_and_return(1);
+        end
 
         // Divide-by-zero remains invalid and -128/-1 remains an overflow.
         sw[14]=1; settle_switches(); sw[14]=0; settle_switches();
@@ -84,6 +118,12 @@ module integration_tb;
             $display("FAIL integrated divide-by-zero handling");
             $finish_and_return(1);
         end
+        capture_oled_frame();
+        if(dut.calculator_module.frame_invalid_result!==1'b1 ||
+           dut.calculator_module.frame_overflow!==1'b0 ||
+           dut.calculator_module.frame_result!==16'sd0) begin
+            $display("FAIL invalid-result OLED frame");$finish_and_return(1);
+        end
 
         sw[14]=1; settle_switches(); sw[14]=0; settle_switches();
         sw[7:0]=8'h80; settle_switches(); raw_press_c();
@@ -95,6 +135,12 @@ module integration_tb;
             $display("FAIL integrated division overflow result=%0d",
                      dut.calculator_module.result);
             $finish_and_return(1);
+        end
+        capture_oled_frame();
+        if(dut.calculator_module.frame_invalid_result!==1'b0 ||
+           dut.calculator_module.frame_overflow!==1'b1 ||
+           dut.calculator_module.frame_result!==16'sd128) begin
+            $display("FAIL overflow OLED frame");$finish_and_return(1);
         end
 
         sw[14]=1; settle_switches(); sw[14]=0; settle_switches();
@@ -119,6 +165,15 @@ module integration_tb;
             $display("FAIL integrated subtraction result=%0d",
                      dut.calculator_module.result);
             $finish_and_return(1);
+        end
+        capture_oled_frame();
+        if(dut.calculator_module.frame_result!==-16'sd13 ||
+           dut.calculator_module.frame_show_history!==1'b0 ||
+           dut.calculator_module.frame_history_count!==2'd3 ||
+           dut.calculator_module.frame_history_0!==-8'sd13 ||
+           dut.calculator_module.frame_history_1!==-8'sd25 ||
+           dut.calculator_module.frame_history_2!==8'sd6) begin
+            $display("FAIL signed result/history rollover in OLED snapshot");$finish_and_return(1);
         end
         sw[15]=1; settle_switches();
         if(dut.choice!=0) begin $display("FAIL calculator back"); $finish_and_return(1); end

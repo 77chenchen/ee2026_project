@@ -1,6 +1,7 @@
 `timescale 1ns / 1ps
 
 module calculator(input CLOCK,
+                  input OLED_CLOCK, frame_begin,
                   input btnU, btnD, btnL, btnR, btnC,
                   input [10:0] sw,
                   input SW13, SW14, SW15,
@@ -190,31 +191,62 @@ module calculator(input CLOCK,
     wire show_history = SW13;
     reg [15:0] calculator_pixel;
 
+    // The arithmetic/history registers remain in the 100 MHz domain.
+    // Freeze all OLED inputs once per frame on the OLED rising edge;
+    // the driver's falling-edge pixel load then has an 80 ns render budget.
+    reg [2:0] frame_state = FIRST_NUMBER;
+    reg signed [7:0] frame_operand_A=0,frame_operand_B=0,frame_selected_number=0;
+    reg signed [15:0] frame_result=0;
+    reg [1:0] frame_operation=ADD;
+    reg frame_operation_selected=0,frame_selected_valid=1;
+    reg frame_invalid_result=0,frame_overflow=0,frame_show_history=0;
+    reg [1:0] frame_history_count=0,frame_history_select=0;
+    reg signed [7:0] frame_history_a0=0,frame_history_a1=0,frame_history_a2=0;
+    reg signed [7:0] frame_history_b0=0,frame_history_b1=0,frame_history_b2=0;
+    reg signed [7:0] frame_history_0=0,frame_history_1=0,frame_history_2=0;
+    reg [1:0] frame_history_op0=0,frame_history_op1=0,frame_history_op2=0;
+
+    always @(posedge OLED_CLOCK) begin
+        if (frame_begin) begin
+            frame_state<=state;
+            frame_operand_A<=operand_A;frame_operand_B<=operand_B;
+            frame_selected_number<=selected_number;frame_selected_valid<=selected_valid;
+            frame_operation<=operation;frame_operation_selected<=operation_selected;
+            frame_result<=result;frame_invalid_result<=invalid_result;frame_overflow<=overflow;
+            frame_show_history<=show_history;
+            frame_history_count<=history_count;frame_history_select<=history_select;
+            frame_history_a0<=history_a0;frame_history_a1<=history_a1;frame_history_a2<=history_a2;
+            frame_history_b0<=history_b0;frame_history_b1<=history_b1;frame_history_b2<=history_b2;
+            frame_history_op0<=history_op0;frame_history_op1<=history_op1;frame_history_op2<=history_op2;
+            frame_history_0<=history_0[7:0];frame_history_1<=history_1[7:0];frame_history_2<=history_2[7:0];
+        end
+    end
+
     
     //history OLED renderer
     history_renderer history_screen(.pixel_index(pixel_index),
-                                    .count(history_count),
-                                    .history_select(history_select),
+                                    .count(frame_history_count),
+                                    .history_select(frame_history_select),
                                     
                                     //first number
-                                    .history_a0(history_a0),
-                                    .history_a1(history_a1),
-                                    .history_a2(history_a2),
+                                    .history_a0(frame_history_a0),
+                                    .history_a1(frame_history_a1),
+                                    .history_a2(frame_history_a2),
                                     
                                     //second number
-                                    .history_b0(history_b0),
-                                    .history_b1(history_b1),
-                                    .history_b2(history_b2),
+                                    .history_b0(frame_history_b0),
+                                    .history_b1(frame_history_b1),
+                                    .history_b2(frame_history_b2),
                                     
                                     //operations 
-                                    .history_op0(history_op0),
-                                    .history_op1(history_op1),
-                                    .history_op2(history_op2),
+                                    .history_op0(frame_history_op0),
+                                    .history_op1(frame_history_op1),
+                                    .history_op2(frame_history_op2),
                                     
                                     //result 
-                                    .history_0(history_0[7:0]),
-                                    .history_1(history_1[7:0]),
-                                    .history_2(history_2[7:0]),
+                                    .history_0(frame_history_0),
+                                    .history_1(frame_history_1),
+                                    .history_2(frame_history_2),
                                     
                                     .recall_error(1'b0),
                                     .pixel_data(oled_data_history));
@@ -682,10 +714,10 @@ module calculator(input CLOCK,
             calculator_pixel = CYAN;
 
         // State 0: Write first number in orange
-        if (state == FIRST_NUMBER) begin
+        if (frame_state == FIRST_NUMBER) begin
             //OPERAND A:
-            if (selected_valid) begin
-                if (draw_number(selected_number, 30, 15))
+            if (frame_selected_valid) begin
+                if (draw_number(frame_selected_number, 30, 15))
                     calculator_pixel = ORANGE;
             end
 
@@ -697,35 +729,35 @@ module calculator(input CLOCK,
         
         // State 1: Write number again in green + Write operator in orange
         
-        else if (state == CHOOSE_OPERATION) begin
+        else if (frame_state == CHOOSE_OPERATION) begin
             //OPERAND A:            
-             if (draw_number(operand_A, 30, 15))
+             if (draw_number(frame_operand_A, 30, 15))
                 calculator_pixel = GREEN;
 
             // Selected operation
-            if (operation_selected) begin
+            if (frame_operation_selected) begin
                 if (draw_operator(
-                    {1'b0, operation}, x, y, 5, 29))
+                    {1'b0, frame_operation}, x, y, 5, 29))
                     calculator_pixel = GREEN;
             end
         end
             
-        else if (state == SECOND_NUMBER || state == CALCULATING) begin
+        else if (frame_state == SECOND_NUMBER || frame_state == CALCULATING) begin
              // Operand A
-            if (draw_number(operand_A, 30, 15))
+            if (draw_number(frame_operand_A, 30, 15))
                 calculator_pixel = GREEN;
 
             // Operation
             if (draw_operator(
-                {1'b0, operation}, x, y, 5, 29))
+                {1'b0, frame_operation}, x, y, 5, 29))
                 calculator_pixel = GREEN;
 
             // Operand B
-            if (state == CALCULATING) begin
-                if (draw_number(operand_B, 30, 29))
+            if (frame_state == CALCULATING) begin
+                if (draw_number(frame_operand_B, 30, 29))
                     calculator_pixel = GREEN;
-            end else if (selected_valid) begin
-                if (draw_number(selected_number, 30, 29))
+            end else if (frame_selected_valid) begin
+                if (draw_number(frame_selected_number, 30, 29))
                     calculator_pixel = ORANGE;
             end
 
@@ -735,18 +767,18 @@ module calculator(input CLOCK,
             end
         end   
         
-        else if (state == SHOW_RESULT) begin
+        else if (frame_state == SHOW_RESULT) begin
              // Operand A
-            if (draw_number(operand_A, 30, 15))
+            if (draw_number(frame_operand_A, 30, 15))
                 calculator_pixel = GREEN;
 
             // Operation
             if (draw_operator(
-                {1'b0, operation}, x, y, 5, 29))
+                {1'b0, frame_operation}, x, y, 5, 29))
                 calculator_pixel = GREEN;
 
             // Operand B
-            if (draw_number(operand_B, 30, 29))
+            if (draw_number(frame_operand_B, 30, 29))
                 calculator_pixel = GREEN;
 
             // Equal sign
@@ -754,7 +786,7 @@ module calculator(input CLOCK,
                 calculator_pixel = GREEN;
 
             // INVALID
-            if (invalid_result) begin
+            if (frame_invalid_result) begin
 
                 if (draw_text(2, x, y, 27, 54))
                     calculator_pixel = RED;
@@ -762,7 +794,7 @@ module calculator(input CLOCK,
             end
 
             // OVERFLOW
-            else if (overflow) begin
+            else if (frame_overflow) begin
 
                 if (draw_text(1, x, y, 24, 54))
                     calculator_pixel = RED;
@@ -772,7 +804,7 @@ module calculator(input CLOCK,
             // Valid result
             else begin
 
-                if (draw_number(result, 30, 43))
+                if (draw_number(frame_result, 30, 43))
                     calculator_pixel = GREEN;
 
             end
@@ -781,6 +813,6 @@ module calculator(input CLOCK,
     end
     
     //chose which OLED screen to display
-    assign oled_data = show_history ? oled_data_history : calculator_pixel;
+    assign oled_data = frame_show_history ? oled_data_history : calculator_pixel;
     
 endmodule

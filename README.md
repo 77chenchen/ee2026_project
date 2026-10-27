@@ -97,10 +97,13 @@ program a bitstream. Vivado is not installed on this development machine;
 simulation passing is **not** a substitute for a passing implementation
 report and on-board OLED check.
 
-Graph display parameters are captured on the OLED clock's rising edge; the
+Graph and calculator display parameters are captured on the OLED clock's rising edge; the
 OLED interface samples each rendered pixel on its falling edge. This gives
-the graph renderer half of the 6.25 MHz period instead of a final 100 MHz
+the renderers half of the 6.25 MHz period instead of a final 100 MHz
 cycle, while keeping the view fixed for the frame.
+Calculator snapshots include the result, error flags and all three history
+rows. Calculation and history storage still run at 100 MHz; UI changes appear
+at the next frame boundary.
 Decimal text uses bounded eight-bit comparisons and subtraction instead of
 32-bit signed division/remainder in the pixel path.
 

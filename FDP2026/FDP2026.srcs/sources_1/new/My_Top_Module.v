@@ -247,6 +247,8 @@ module My_Top_Module (input CLOCK,
     
     // Calculator module:
     calculator calculator_module(.CLOCK(CLOCK),
+                                 .OLED_CLOCK(clk6p25m),
+                                 .frame_begin(frame_begin),
                                  .btnU(db_btnU && choice == state_calculator),
                                  .btnD(db_btnD && choice == state_calculator),
                                  .btnL(db_btnL && choice == state_calculator),
