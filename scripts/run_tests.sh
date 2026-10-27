@@ -37,6 +37,10 @@ run_tb graph_renderer_tb \
 run_tb oled_display_tb \
     "$src/Oled_Display.v" "$sim/oled_display_tb.v"
 
+run_tb graph_oled_tb \
+    "$src/graph_curve_cache.v" "$src/graph_renderer.v" \
+    "$src/Oled_Display.v" "$sim/graph_oled_tb.v"
+
 run_tb calculator_signed_divider_tb \
     "$src/calculator_signed_divider.v" "$sim/calculator_signed_divider_tb.v"
 
@@ -56,5 +60,9 @@ run_tb integration_tb \
     "$src/graph_curve_cache.v" "$src/graph_renderer.v" \
     "$src/graph_mode_integration.v" "$src/Oled_Display.v" \
     "$src/My_Top_Module.v" "$sim/integration_tb.v"
+
+echo "[TEST] Vivado checker control flow (mocked, not FPGA timing validation)"
+cp "$repo_root/FDP2026/check_vivado_resources.tcl" "$build_dir/check_vivado_resources.tcl"
+tclsh "$repo_root/scripts/test_vivado_checker.tcl" "$build_dir/check_vivado_resources.tcl"
 
 echo "All EE2026 simulations passed."

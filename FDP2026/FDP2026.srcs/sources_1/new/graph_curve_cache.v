@@ -4,21 +4,23 @@
 // Horner evaluation reuses one signed multiplier over several 100 MHz clocks.
 // Register the coordinate, result and screen projection separately so the
 // multiplier and clipping logic do not form one long RAM-write timing path.
-// The small column tables are read by the OLED renderer without a multiplier.
+// Read the small column tables on the OLED rising edge. Only this short
+// RAM/mux path crosses from 100 MHz; pixel comparisons and colour selection
+// then have half an OLED period before the SPI core's falling-edge sample.
 module graph_curve_cache(
-    input wire clk, enable,
+    input wire clk, pixel_clk, enable,
     input wire [6:0] screen_x,origin_x,
     input wire [5:0] origin_y,
     input wire [3:0] scale,
     input wire graph1_type,graph2_type,cubic1,cubic2,
     input wire signed [7:0] a1,b1,c1,d1,a2,b2,c2,d2,
     output reg ready=0,
-    output wire [13:0] bounds1,bounds2
+    output reg [13:0] bounds1={7'd127,7'd127},
+    output reg [13:0] bounds2={7'd127,7'd127}
 );
     reg [13:0] table1[0:95];
     reg [13:0] table2[0:95];
-    assign bounds1=table1[screen_x];
-    assign bounds2=table2[screen_x];
+    reg build_ready=0;
 
     reg initialized=0;
     reg [3:0] old_scale;
@@ -32,6 +34,20 @@ module graph_curve_cache(
         old_cubic1!=cubic1 || old_cubic2!=cubic2 ||
         old_a1!=a1 || old_b1!=b1 || old_c1!=c1 || old_d1!=d1 ||
         old_a2!=a2 || old_b2!=b2 || old_c2!=c2 || old_d2!=d2;
+
+    // The clocks are related and constrained in the XDC, not asynchronous.
+    // Mask an unfinished/restarted table, and register validity together with
+    // its bounds so a partially rebuilt column is never rendered as valid.
+    always @(posedge pixel_clk) begin
+        ready<=build_ready && enable && !changed && screen_x<96;
+        if (build_ready && enable && !changed && screen_x<96) begin
+            bounds1<=table1[screen_x];
+            bounds2<=table2[screen_x];
+        end else begin
+            bounds1<={7'd127,7'd127};
+            bounds2<={7'd127,7'd127};
+        end
+    end
     wire [1:0] scale_shift=(scale==8)?2'd3:
                            (scale==4)?2'd2:
                            (scale==2)?2'd1:2'd0;
@@ -78,9 +94,9 @@ module graph_curve_cache(
                               {7'd127,7'd127} : {clipped_low,clipped_high};
     always @(posedge clk) begin
         if (!enable) begin
-            initialized<=0;ready<=0;phase<=IDLE;
+            initialized<=0;build_ready<=0;phase<=IDLE;
         end else if (!initialized || changed) begin
-            initialized<=1;ready<=0;
+            initialized<=1;build_ready<=0;
             old_scale<=scale;old_ox<=origin_x;old_oy<=origin_y;
             old_type1<=graph1_type;old_type2<=graph2_type;
             old_cubic1<=cubic1;old_cubic2<=cubic2;
@@ -138,7 +154,7 @@ module graph_curve_cache(
                     if (!graph_number) begin
                         graph_number<=1;phase<=PREP;
                     end else if (column==95) begin
-                        ready<=1;phase<=IDLE;
+                        build_ready<=1;phase<=IDLE;
                     end else begin
                         column<=column+1'b1;graph_number<=0;phase<=PREP;
                     end

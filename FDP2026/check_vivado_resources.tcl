@@ -46,7 +46,9 @@ close_design
 
 launch_runs impl_1 -to_step route_design -jobs 4
 wait_on_run impl_1
-if {![string match "route_design Complete!*" [get_property STATUS [get_runs impl_1]]]} {
+# Vivado also returns "route_design Complete, Failed Timing!". It still
+# contains a routed design: export diagnostics before rejecting its slack.
+if {![string match "route_design Complete*" [get_property STATUS [get_runs impl_1]]]} {
     error "Implementation did not route: [get_property STATUS [get_runs impl_1]]"
 }
 open_run impl_1

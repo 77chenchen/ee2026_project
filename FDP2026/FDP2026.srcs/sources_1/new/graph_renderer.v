@@ -1,10 +1,11 @@
 `timescale 1ns / 1ps
 
-// Combinational 96x64 RGB565 graph renderer.
+// 96x64 RGB565 renderer: 100 MHz curve calculation, OLED-clock column read,
+// then combinational overlays before the OLED falling-edge pixel sample.
 module graph_renderer #(
     parameter INCLUDE_TEXT = 1
 ) (
-    input  wire clk,
+    input  wire clk, pixel_clk,
     input  wire [12:0] pixel_index,
     input  wire [1:0]  graph_count,
     input  wire        graph1_type,
@@ -73,8 +74,13 @@ module graph_renderer #(
         $signed({1'b0, scale_px_per_unit});
     wire cache_ready;
     wire [13:0] bounds1,bounds2;
+    reg [5:0] curve_screen_y=0;
+    // The RAM read and row belong to the same requested pixel. The OLED
+    // changes pixel_index on falling edges and samples on a later falling
+    // edge, leaving this rising-edge stage half a cycle to settle.
+    always @(posedge pixel_clk) curve_screen_y<=screen_y;
     graph_curve_cache curve_cache(
-        .clk(clk),.enable(draw_enable),.screen_x(screen_x),
+        .clk(clk),.pixel_clk(pixel_clk),.enable(draw_enable),.screen_x(screen_x),
         .origin_x(origin_x),.origin_y(origin_y),.scale(scale_px_per_unit),
         .graph1_type(graph1_type),.graph2_type(graph2_type),
         .cubic1(cubic1),.cubic2(cubic2),
@@ -270,10 +276,12 @@ module graph_renderer #(
         // without turning them into the wide bands produced by slope-sized
         // vertical tolerances.
         graph1_pixel = draw_enable && cache_ready && bounds1[13:7]!=7'd127 &&
-                       ((py+1) >= bounds1[13:7]) && (py <= (bounds1[6:0]+1));
+                       (({1'b0,curve_screen_y}+1) >= bounds1[13:7]) &&
+                       (curve_screen_y <= (bounds1[6:0]+1));
         graph2_pixel = draw_enable && cache_ready && (graph_count == 2) &&
                        bounds2[13:7]!=7'd127 &&
-                       ((py+1) >= bounds2[13:7]) && (py <= (bounds2[6:0]+1));
+                       (({1'b0,curve_screen_y}+1) >= bounds2[13:7]) &&
+                       (curve_screen_y <= (bounds2[6:0]+1));
 
         marker_x = ox + (intersection_x_scaled >>> 4);
         marker_y = oy - (intersection_y_scaled >>> 4);

@@ -208,6 +208,9 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
+      <File Path="$PSRCDIR/sim_1/new/graph_oled_tb.v">
+        <FileInfo><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
       <File Path="$PSRCDIR/sim_1/new/calculator_mode_tb.v">
         <FileInfo><Attr Name="UsedIn" Val="simulation"/></FileInfo>
       </File>

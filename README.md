@@ -117,3 +117,14 @@ coordinate, evaluated height and screen projection before the column-table
 write. The intersection solver also reuses a sequential divider instead of instantiating a wide
 combinational divider. These choices reduce logic use, but only a fresh
 Vivado report can establish whether the final design fits and meets timing.
+
+Curve-table readout is registered on the OLED rising edge, together with its
+valid flag and pixel row. The 100 MHz RAM-write path therefore stops at a
+small OLED read stage, rather than continuing through curve comparisons,
+colour overlays and the SPI shift-register input. Invalid/rebuilding tables
+are masked. No clock period or false-path exception is relaxed by this fix.
+`graph_oled_tb` checks 24,576 actual serialized RGB565 pixel words across four
+complete frames, including linear/quadratic/cubic curves, both markers,
+minimum/maximum zoom and pan, using an independent arithmetic pixel oracle.
+The resource checker exports routed diagnostics even when Vivado reports
+`route_design Complete, Failed Timing!`, and still rejects negative slack.

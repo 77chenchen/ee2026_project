@@ -108,7 +108,7 @@ module graph_mode_integration(
     wire [6:0] unused_screen_x;
     wire [5:0] unused_screen_y;
     graph_renderer graph_view(
-        .clk(CLOCK),
+        .clk(CLOCK), .pixel_clk(OLED_CLOCK),
         .pixel_index(pixel_index), .graph_count(frame_graph_count),
         .graph1_type(frame_graph1_type), .graph2_type(frame_graph2_type),
         .cubic1(frame_cubic1),.cubic2(frame_cubic2),

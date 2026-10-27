@@ -40,6 +40,7 @@ set simulation_sources [list \
     [file join $sim_dir graph_controller_tb.v] \
     [file join $sim_dir graph_extensions_tb.v] \
     [file join $sim_dir graph_renderer_tb.v] \
+    [file join $sim_dir graph_oled_tb.v] \
     [file join $sim_dir calculator_mode_tb.v] \
     [file join $sim_dir calculator_signed_divider_tb.v] \
     [file join $sim_dir calculator_renderer_tb.v] \

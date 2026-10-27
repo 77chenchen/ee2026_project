@@ -3,7 +3,9 @@
 module graph_renderer_tb;
     reg clk=0;
     always #5 clk=~clk;
-    reg [12:0] pixel_index;
+    reg pixel_clk=0;
+    always #80 pixel_clk=~pixel_clk;
+    reg [12:0] pixel_index=0;
     reg [1:0] graph_count=2;
     reg graph1_type=0, graph2_type=0;
     reg cubic1=0,cubic2=0;
@@ -30,7 +32,7 @@ module graph_renderer_tb;
     reg expected_text;
 
     graph_renderer dut(
-        .clk(clk),
+        .clk(clk),.pixel_clk(pixel_clk),
         .pixel_index(pixel_index),.graph_count(graph_count),
         .graph1_type(graph1_type),.graph2_type(graph2_type),
         .cubic1(cubic1),.cubic2(cubic2),
@@ -50,7 +52,10 @@ module graph_renderer_tb;
     task wait_cache;
         integer cycles;
         begin
-            @(posedge clk);#1;
+            // Allow the OLED read stage to invalidate an old view before
+            // waiting for the new 100 MHz table build to finish.
+            repeat(2) @(posedge pixel_clk);
+            #1;
             for(cycles=0; !dut.cache_ready && cycles<4000; cycles=cycles+1) begin
                 @(posedge clk);#1;
             end
@@ -59,6 +64,10 @@ module graph_renderer_tb;
                 $finish_and_return(1);
             end
         end
+    endtask
+
+    task sample_current_pixel;
+        begin @(posedge pixel_clk); #1; end
     endtask
 
     // Independent digit bitmaps and arithmetic form the display oracle.
@@ -90,7 +99,7 @@ module graph_renderer_tb;
         wait_cache();
         green_count=0; orange_count=0; white_count=0;
         for(i=0;i<6144;i=i+1) begin
-            pixel_index=i; #1;
+            pixel_index=i; sample_current_pixel();
             if(pixel_data==16'h07E0) green_count=green_count+1;
             if(pixel_data==16'hFD20) orange_count=orange_count+1;
             if(pixel_data==16'hFFFF) white_count=white_count+1;
@@ -103,7 +112,7 @@ module graph_renderer_tb;
 
         status=1; intersection_valid=0; red_count=0; white_count=0;
         for(i=0;i<6144;i=i+1) begin
-            pixel_index=i; #1;
+            pixel_index=i; sample_current_pixel();
             if(pixel_data==16'hF800) red_count=red_count+1;
             if(pixel_data==16'hFFFF) white_count=white_count+1;
         end
@@ -115,17 +124,17 @@ module graph_renderer_tb;
         status=0; graph1_type=1; a1=1; b1=0; cursor_enable=1;
         intersection_valid=0; origin_x=40; origin_y=20;
         wait_cache();
-        pixel_index=20*96+40; #1;
+        pixel_index=20*96+40; sample_current_pixel();
         if(pixel_data!=16'h07FF) begin
             $display("FAIL cursor/pan got=%h",pixel_data);
             $finish_and_return(1);
         end
-        pixel_index=38*96+52; #1;
+        pixel_index=38*96+52; sample_current_pixel();
         if(pixel_data!=16'h07FF) begin
             $display("FAIL cursor coordinate label got=%h",pixel_data);
             $finish_and_return(1);
         end
-        cursor_enable=0; pixel_index=16*96+44; #1;
+        cursor_enable=0; pixel_index=16*96+44; sample_current_pixel();
         if(pixel_data!=16'h07E0) begin
             $display("FAIL quadratic got=%h",pixel_data);
             $finish_and_return(1);
@@ -137,14 +146,14 @@ module graph_renderer_tb;
         a1=1;b1=0;c1=0;d1=0;
         origin_x=48;origin_y=32;scale=1;
         wait_cache();
-        pixel_index=31*96+49;#1;
+        pixel_index=31*96+49;sample_current_pixel();
         if(pixel_data!=16'h07E0) begin
             $display("FAIL cubic zoom-out pixel=%h ready=%b phase=%0d bounds=%h",
                      pixel_data,dut.cache_ready,dut.curve_cache.phase,dut.bounds1);
             $finish_and_return(1);
         end
         // No every-other-column grid flood at minimum scale.
-        pixel_index=19*96+54;#1;
+        pixel_index=19*96+54;sample_current_pixel();
         if(pixel_data==16'h2104) begin
             $display("FAIL zoom-out grid flood");$finish_and_return(1);
         end
@@ -152,20 +161,20 @@ module graph_renderer_tb;
         // y=x^3+2x^2-3x+1: f(1)=1 and f(-1)=5.
         b1=2;c1=-3;d1=1;scale=4;
         wait_cache();
-        pixel_index=28*96+52;#1;
+        pixel_index=28*96+52;sample_current_pixel();
         if(pixel_data!=16'h07E0) begin
             $display("FAIL full cubic positive x=%h ready=%b bounds=%h",
                      pixel_data,dut.cache_ready,dut.bounds1);
             $finish_and_return(1);
         end
-        pixel_index=12*96+44;#1;
+        pixel_index=12*96+44;sample_current_pixel();
         if(pixel_data!=16'h07E0) begin
             $display("FAIL full cubic negative x=%h",pixel_data);$finish_and_return(1);
         end
         cubic1=0;graph1_type=1;a1=1;b1=2;c1=-3;d1=0;
         wait_cache();
         // x=2 => y=5, so screen (56,12) at four pixels per unit.
-        pixel_index=12*96+56;#1;
+        pixel_index=12*96+56;sample_current_pixel();
         if(pixel_data!=16'h07E0) begin
             $display("FAIL full quadratic zoom scale=%h",pixel_data);$finish_and_return(1);
         end
@@ -173,11 +182,11 @@ module graph_renderer_tb;
         cubic1=0;intersection_valid=1;intersection2_valid=1;
         ix=-16;iy=0;ix2=16;iy2=0;scale=4;
         wait_cache();
-        pixel_index=32*96+44;#1;
+        pixel_index=32*96+44;sample_current_pixel();
         if(pixel_data!=16'hFFFF) begin
             $display("FAIL first marker=%h",pixel_data);$finish_and_return(1);
         end
-        pixel_index=32*96+52;#1;
+        pixel_index=32*96+52;sample_current_pixel();
         if(pixel_data!=16'hFFFF) begin
             $display("FAIL second marker=%h",pixel_data);$finish_and_return(1);
         end
@@ -192,13 +201,13 @@ module graph_renderer_tb;
         if(!dut.cache_ready) begin
             $display("FAIL two-cubic cache did not finish");$finish_and_return(1);
         end
-        pixel_index=31*96+49;#1;
+        pixel_index=31*96+49;sample_current_pixel();
         if(pixel_data!=16'h07E0) begin
             $display("FAIL two-cubic first curve=%h",pixel_data);$finish_and_return(1);
         end
         // At x=1 the 1-pixel continuity tolerance overlaps the curves;
         // x=2 separates them and checks graph 2's own cached result.
-        pixel_index=40*96+50;#1;
+        pixel_index=40*96+50;sample_current_pixel();
         if(pixel_data!=16'hFD20) begin
             $display("FAIL two-cubic second curve=%h",pixel_data);$finish_and_return(1);
         end
@@ -207,11 +216,11 @@ module graph_renderer_tb;
         if(!dut.cache_ready) begin
             $display("FAIL two-cubic cache after pan/zoom");$finish_and_return(1);
         end
-        pixel_index=28*96+44;#1;
+        pixel_index=28*96+44;sample_current_pixel();
         if(pixel_data!=16'h07E0) begin
             $display("FAIL panned cubic first curve=%h",pixel_data);$finish_and_return(1);
         end
-        pixel_index=36*96+44;#1;
+        pixel_index=36*96+44;sample_current_pixel();
         if(pixel_data!=16'hFD20) begin
             $display("FAIL panned cubic second curve=%h",pixel_data);$finish_and_return(1);
         end
