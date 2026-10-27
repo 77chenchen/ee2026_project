@@ -114,6 +114,9 @@
       <File Path="$PSRCDIR/sources_1/new/calculator.v">
         <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
       </File>
+      <File Path="$PSRCDIR/sources_1/new/calculator_signed_divider.v">
+        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
       <File Path="$PSRCDIR/sources_1/new/switch_to_binary.v">
         <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
       </File>
@@ -206,6 +209,9 @@
         </FileInfo>
       </File>
       <File Path="$PSRCDIR/sim_1/new/calculator_mode_tb.v">
+        <FileInfo><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/new/calculator_signed_divider_tb.v">
         <FileInfo><Attr Name="UsedIn" Val="simulation"/></FileInfo>
       </File>
       <File Path="$PSRCDIR/sim_1/new/calculator_renderer_tb.v">

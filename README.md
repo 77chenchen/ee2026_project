@@ -10,6 +10,8 @@ Graph extensions live in separate adapter, solver and renderer files.
 
 - Calculator: signed 8-bit two's-complement input; addition, subtraction,
   multiplication and division; full result, invalid and overflow displays.
+  Division uses eight clocked steps after the second operand is saved, so a
+  recalled history value does not feed a combinational divider in one cycle.
 - Graph: one or two linear `y=Bx+C`, quadratic `y=Ax²+Bx+C`, or cubic
   `y=Ax³+Bx²+Cx+D` plots. A mixed pair is allowed. Graph 1 is green and
   Graph 2 orange, with axes, grid, zoom and pan.
@@ -59,6 +61,8 @@ source {C:/path/to/ee2026_project/FDP2026/recreate_project.tcl}
 This builds a portable project at `FDP2026/vivado_rebuilt/FDP2026.xpr`.
 The Basys3 XDC must be active. Connect the OLED to Pmod JB with power off;
 `JB[0:7]` map to CS, SDIN, unused, SCLK, D/C, RESN, VCCEN and PMODEN.
+The top level asserts an OLED startup reset before the driver's power-up
+delay; the display should show the menu without any button press.
 
 On a machine with Icarus Verilog, run:
 
@@ -69,6 +73,8 @@ On a machine with Icarus Verilog, run:
 The suite checks controller input, 0/1/2 intersections, signed cubic and
 quadratic pixels at multiple zoom levels, both markers, OLED reset and all
 6144 transmitted pixels, and routing through Hanna's top-level menu.
+It also covers calculator signed division, history recall, divide-by-zero,
+overflow and the top-level OLED startup reset.
 
 For **actual FPGA resource and timing verification**, open the checked-in
 Vivado project and run this script in Vivado batch mode (adjust the path):

@@ -23,11 +23,12 @@ module calculator(input CLOCK,
     localparam CYAN   = 16'h07FF;
            
      // States:
-    localparam FIRST_NUMBER     = 2'b00;
-    localparam CHOOSE_OPERATION = 2'b01;
-    localparam SECOND_NUMBER    = 2'b10;
-    localparam SHOW_RESULT      = 2'b11;
-    reg [1:0] state = FIRST_NUMBER;
+    localparam FIRST_NUMBER     = 3'd0;
+    localparam CHOOSE_OPERATION = 3'd1;
+    localparam SECOND_NUMBER    = 3'd2;
+    localparam CALCULATING      = 3'd3;
+    localparam SHOW_RESULT      = 3'd4;
+    reg [2:0] state = FIRST_NUMBER;
 
     // Calculations:
 
@@ -54,13 +55,15 @@ module calculator(input CLOCK,
     reg invalid_result = 0;
     
     wire signed [15:0] extended_A = {{8{operand_A[7]}}, operand_A};
-    wire signed [15:0] extended_B = {{8{selected_number[7]}}, selected_number};
+    // Operand B is captured before arithmetic, separating history recall
+    // from the result register's timing path.
+    wire signed [15:0] extended_B = {{8{operand_B[7]}}, operand_B};
 
     wire signed [15:0] calculated_result =
         (operation == ADD) ? (extended_A + extended_B) :
         (operation == SUB) ? (extended_A - extended_B) :
-        (operation == MUL) ? (extended_A * extended_B) :
-        (extended_B != 0) ? (extended_A / extended_B) : 16'sd0;
+        (operation == MUL) ? ($signed(operand_A) * $signed(operand_B)) :
+                             16'sd0;
 
     wire invalid_now;
     check_invalid validator (
@@ -165,6 +168,18 @@ module calculator(input CLOCK,
     assign selected_number =
         use_history ? alternate_operand[7:0] :
                       switch_value;
+
+    // Capture the live/history operand at btnC, then divide one bit per
+    // clock. No division circuit lies on a 100 MHz single-cycle path.
+    wire divide_start = (state == SECOND_NUMBER) && btnC &&
+                        selected_valid && !invalid_now && (operation == DIV);
+    wire divide_done;
+    wire signed [15:0] divide_quotient;
+    calculator_signed_divider divider (
+        .clk(CLOCK), .start(divide_start),
+        .dividend(operand_A), .divisor(selected_number),
+        .busy(), .done(divide_done), .quotient(divide_quotient)
+    );
                       
     //OLED data from history renderer
     wire [15:0] oled_data_history;
@@ -602,18 +617,35 @@ module calculator(input CLOCK,
                 state <= SECOND_NUMBER;
         end
         
-        // State 2: Second number choice and calculation
+        // State 2: Capture B. The arithmetic runs only on registered inputs.
        else if (state == SECOND_NUMBER) begin
            if (btnC && selected_valid) begin
                 operand_B <= selected_number;
                 invalid_result <= invalid_now;
-                result <= invalid_now ?
-                          16'sd0 : calculated_result;
+                if (invalid_now) begin
+                    result <= 16'sd0;
+                    state <= SHOW_RESULT;
+                end else begin
+                    state <= CALCULATING;
+                end
+            end
+        end
+
+        // State 3: Add/subtract/multiply take one registered cycle; signed
+        // division waits for the sequential divider's completion pulse.
+        else if (state == CALCULATING) begin
+            if (operation == DIV) begin
+                if (divide_done) begin
+                    result <= divide_quotient;
+                    state <= SHOW_RESULT;
+                end
+            end else begin
+                result <= calculated_result;
                 state <= SHOW_RESULT;
             end
         end
         
-        // State 3: Show result
+        // State 4: Show result
         else if (state == SHOW_RESULT) begin  
         
             if (SW14) begin          
@@ -678,7 +710,7 @@ module calculator(input CLOCK,
             end
         end
             
-        else if (state == SECOND_NUMBER) begin
+        else if (state == SECOND_NUMBER || state == CALCULATING) begin
              // Operand A
             if (draw_number(operand_A, 30, 15))
                 calculator_pixel = GREEN;
@@ -689,7 +721,10 @@ module calculator(input CLOCK,
                 calculator_pixel = GREEN;
 
             // Operand B
-            if (selected_valid) begin
+            if (state == CALCULATING) begin
+                if (draw_number(operand_B, 30, 29))
+                    calculator_pixel = GREEN;
+            end else if (selected_valid) begin
                 if (draw_number(selected_number, 30, 29))
                     calculator_pixel = ORANGE;
             end

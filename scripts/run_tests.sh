@@ -37,11 +37,15 @@ run_tb graph_renderer_tb \
 run_tb oled_display_tb \
     "$src/Oled_Display.v" "$sim/oled_display_tb.v"
 
+run_tb calculator_signed_divider_tb \
+    "$src/calculator_signed_divider.v" "$sim/calculator_signed_divider_tb.v"
+
 run_tb integration_tb \
     "$src/clock_hz.v" "$src/debounce.v" \
     "$src/signed_switch_input.v" "$src/check_invalid.v" \
     "$src/check_overflow.v" "$src/calculation_history.v" \
-    "$src/calculator.v" "$src/switch_to_binary.v" \
+    "$src/calculator.v" "$src/calculator_signed_divider.v" \
+    "$src/switch_to_binary.v" \
     "$src/history_renderer.v" "$src/owerflow_renderer.v" \
     "$src/right_angle_triangle.v" "$src/triangle_renderer.v" \
     "$oskar_src/graph_controller.v" "$src/graph_cubic_input.v" \

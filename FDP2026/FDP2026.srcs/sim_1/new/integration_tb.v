@@ -19,10 +19,20 @@ module integration_tb;
     task raw_press_u; begin force dut.db_btnU=1; #1; @(posedge CLOCK); #1; release dut.db_btnU; repeat(2)@(posedge CLOCK); end endtask
     task raw_press_d; begin force dut.db_btnD=1; #1; @(posedge CLOCK); #1; release dut.db_btnD; repeat(2)@(posedge CLOCK); end endtask
     task raw_press_l; begin force dut.db_btnL=1; #1; @(posedge CLOCK); #1; release dut.db_btnL; repeat(2)@(posedge CLOCK); end endtask
+    task raw_press_r; begin force dut.db_btnR=1; #1; @(posedge CLOCK); #1; release dut.db_btnR; repeat(2)@(posedge CLOCK); end endtask
     task settle_switches; begin repeat(6)@(posedge CLOCK); end endtask
 
     initial begin
+        #1;
+        if (dut.oled_reset !== 1'b1 || JB[7] !== 1'b0) begin
+            $display("FAIL OLED startup reset was not asserted");
+            $finish_and_return(1);
+        end
         repeat(72)@(posedge CLOCK); #1;
+        if (dut.oled_reset !== 1'b0 || dut.oled.delay == 0) begin
+            $display("FAIL OLED reset did not load its power-up delay");
+            $finish_and_return(1);
+        end
         if(dut.choice!=0) begin $display("FAIL boot menu"); $finish_and_return(1); end
 
         raw_press_c();
@@ -32,6 +42,83 @@ module integration_tb;
         sw[7:0]=8'sd5; settle_switches(); raw_press_c(); repeat(3)@(posedge CLOCK); #1;
         if(dut.calculator_module.result!=13) begin
             $display("FAIL Hanna calculator result=%0d",dut.calculator_module.result); $finish_and_return(1);
+        end
+
+        // Recall the preceding result through SW8, then divide it. This is
+        // the exact history-to-result path that failed routed timing.
+        sw[14]=1; settle_switches(); sw[14]=0; settle_switches();
+        sw[8]=1; sw[7:0]=0; settle_switches(); raw_press_c();
+        if(dut.calculator_module.operand_A!=13) begin
+            $display("FAIL history recall before division");
+            $finish_and_return(1);
+        end
+        raw_press_r(); raw_press_c();
+        sw[8]=0; sw[7:0]=8'sd2; settle_switches(); raw_press_c();
+        repeat(12)@(posedge CLOCK); #1;
+        if(dut.calculator_module.result!=6) begin
+            $display("FAIL history division result=%0d",dut.calculator_module.result);
+            $finish_and_return(1);
+        end
+
+        // Also check a negative signed quotient through the full top level.
+        sw[14]=1; settle_switches(); sw[14]=0; settle_switches();
+        sw[7:0]=-8'sd100; settle_switches(); raw_press_c();
+        raw_press_r(); raw_press_c();
+        sw[7:0]=8'sd4; settle_switches(); raw_press_c();
+        repeat(12)@(posedge CLOCK); #1;
+        if(dut.calculator_module.result!=-25 ||
+           dut.calculator_module.state!=3'd4) begin
+            $display("FAIL integrated signed division result=%0d state=%0d",
+                     dut.calculator_module.result,dut.calculator_module.state);
+            $finish_and_return(1);
+        end
+
+        // Divide-by-zero remains invalid and -128/-1 remains an overflow.
+        sw[14]=1; settle_switches(); sw[14]=0; settle_switches();
+        sw[7:0]=8'sd7; settle_switches(); raw_press_c();
+        raw_press_r(); raw_press_c();
+        sw[7:0]=8'sd0; settle_switches(); raw_press_c();
+        repeat(3)@(posedge CLOCK); #1;
+        if(!dut.calculator_module.invalid_result ||
+           dut.calculator_module.state!=3'd4) begin
+            $display("FAIL integrated divide-by-zero handling");
+            $finish_and_return(1);
+        end
+
+        sw[14]=1; settle_switches(); sw[14]=0; settle_switches();
+        sw[7:0]=8'h80; settle_switches(); raw_press_c();
+        raw_press_r(); raw_press_c();
+        sw[7:0]=8'hff; settle_switches(); raw_press_c();
+        repeat(12)@(posedge CLOCK); #1;
+        if(dut.calculator_module.result!=16'sd128 ||
+           !dut.calculator_module.overflow) begin
+            $display("FAIL integrated division overflow result=%0d",
+                     dut.calculator_module.result);
+            $finish_and_return(1);
+        end
+
+        sw[14]=1; settle_switches(); sw[14]=0; settle_switches();
+        sw[7:0]=8'sd20; settle_switches(); raw_press_c();
+        raw_press_l(); raw_press_c();
+        sw[7:0]=8'sd10; settle_switches(); raw_press_c();
+        repeat(3)@(posedge CLOCK); #1;
+        if(dut.calculator_module.result!=16'sd200 ||
+           !dut.calculator_module.overflow) begin
+            $display("FAIL integrated multiplication result=%0d",
+                     dut.calculator_module.result);
+            $finish_and_return(1);
+        end
+
+        sw[14]=1; settle_switches(); sw[14]=0; settle_switches();
+        sw[7:0]=-8'sd8; settle_switches(); raw_press_c();
+        raw_press_d(); raw_press_c();
+        sw[7:0]=8'sd5; settle_switches(); raw_press_c();
+        repeat(3)@(posedge CLOCK); #1;
+        if(dut.calculator_module.result!=-13 ||
+           dut.calculator_module.invalid_result) begin
+            $display("FAIL integrated subtraction result=%0d",
+                     dut.calculator_module.result);
+            $finish_and_return(1);
         end
         sw[15]=1; settle_switches();
         if(dut.choice!=0) begin $display("FAIL calculator back"); $finish_and_return(1); end
