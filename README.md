@@ -90,7 +90,9 @@ program a bitstream. Vivado is not installed on this development machine;
 simulation passing is **not** a substitute for a passing implementation
 report and on-board OLED check.
 
-The graph curve cache reuses one multiplier across columns. The intersection
+The graph curve cache reuses one multiplier across columns and registers the
+coordinate, evaluated height and screen projection before the column-table
+write. The intersection
 solver also reuses a sequential divider instead of instantiating a wide
 combinational divider. These choices reduce logic use, but only a fresh
 Vivado report can establish whether the final design fits and meets timing.

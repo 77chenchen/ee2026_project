@@ -2,6 +2,8 @@
 
 // Rebuilds the two 96-column plots when the view or coefficients change.
 // Horner evaluation reuses one signed multiplier over several 100 MHz clocks.
+// Register the coordinate, result and screen projection separately so the
+// multiplier and clipping logic do not form one long RAM-write timing path.
 // The small column tables are read by the OLED renderer without a multiplier.
 module graph_curve_cache(
     input wire clk, enable,
@@ -40,7 +42,8 @@ module graph_curve_cache(
     reg [6:0] column=0;
     reg graph_number=0,previous=1;
     reg [2:0] phase=0;
-    localparam IDLE=0,PREP=1,MUL1=2,MUL2=3,MUL3=4,STORE=5;
+    localparam IDLE=0,PREP=1,MUL1=2,MUL2=3,MUL3=4,
+               EVAL=5,PROJECT=6,STORE=7;
     wire signed [8:0] dx=$signed({2'b0,column})-
                           $signed({2'b0,origin_x})-(previous?9'sd1:9'sd0);
     wire signed [7:0] ca=graph_number?a2:a1;
@@ -49,8 +52,9 @@ module graph_curve_cache(
     wire signed [7:0] cd=graph_number?d2:d1;
     wire is_cubic=graph_number?cubic2:cubic1;
     wire is_quadratic=graph_number?graph2_type:graph1_type;
+    reg signed [8:0] dx_sample;
     reg signed [27:0] work;
-    wire signed [36:0] product=work*dx;
+    wire signed [36:0] product=work*dx_sample;
     // Horner evaluation stays in pixel coordinates: dx is pixels from the
     // graph origin, while scale=2^scale_shift pixels per graph unit.
     // For cubic, work advances A*dx+B*s, then *dx+C*s^2, then *dx+D*s^3;
@@ -63,7 +67,8 @@ module graph_curve_cache(
         is_cubic ? ((product+term_d) >>> double_shift) :
         is_quadratic ? ((product+term_c) >>> scale_shift) :
                        (product+($signed(cc) <<< scale_shift));
-    wire signed [37:0] screen_y_value=$signed({1'b0,origin_y})-final_value;
+    reg signed [37:0] final_value_reg;
+    reg signed [37:0] screen_y_value;
     wire signed [37:0] lower=previous_y<screen_y_value?previous_y:screen_y_value;
     wire signed [37:0] upper=previous_y>screen_y_value?previous_y:screen_y_value;
     wire [6:0] clipped_low=lower<0?7'd0:lower>63?7'd63:lower[6:0];
@@ -84,24 +89,33 @@ module graph_curve_cache(
         end else case(phase)
             PREP: begin
                 // Linear uses b*x+c. Quadratic/cubic begin with a*x.
+                dx_sample<=dx;
                 work<=(!is_cubic && !is_quadratic) ? $signed(cb) : $signed(ca);
                 phase<=MUL1;
             end
             MUL1: begin
-                if (!is_cubic && !is_quadratic) phase<=STORE;
+                if (!is_cubic && !is_quadratic) phase<=EVAL;
                 else begin
                     work<=product+term_b;
                     phase<=MUL2;
                 end
             end
             MUL2: begin
-                if (is_quadratic) phase<=STORE;
+                if (is_quadratic) phase<=EVAL;
                 else begin
                     work<=product+term_c;
                     phase<=MUL3;
                 end
             end
-            MUL3: phase<=STORE;
+            MUL3: phase<=EVAL;
+            EVAL: begin
+                final_value_reg<=final_value;
+                phase<=PROJECT;
+            end
+            PROJECT: begin
+                screen_y_value<=$signed({1'b0,origin_y})-final_value_reg;
+                phase<=STORE;
+            end
             STORE: begin
                 if (previous) begin
                     // Each column stores the range from x-1 to x, rather

@@ -138,7 +138,41 @@ module graph_renderer_tb;
             $display("FAIL second marker=%h",pixel_data);$finish_and_return(1);
         end
 
-        $display("PASS graph renderer linear, quadratic, cubic, zoom-out and two markers");
+        // Both cubic caches must finish with the extra timing pipeline.
+        intersection_valid=0;intersection2_valid=0;
+        graph_count=2;graph1_type=0;graph2_type=0;cubic1=1;cubic2=1;
+        a1=1;b1=0;c1=0;d1=0;
+        a2=-1;b2=0;c2=0;d2=0;
+        origin_x=48;origin_y=32;scale=1;
+        repeat(3000) @(posedge clk);#1;
+        if(!dut.cache_ready) begin
+            $display("FAIL two-cubic cache did not finish");$finish_and_return(1);
+        end
+        pixel_index=31*96+49;#1;
+        if(pixel_data!=16'h07E0) begin
+            $display("FAIL two-cubic first curve=%h",pixel_data);$finish_and_return(1);
+        end
+        // At x=1 the 1-pixel continuity tolerance overlaps the curves;
+        // x=2 separates them and checks graph 2's own cached result.
+        pixel_index=40*96+50;#1;
+        if(pixel_data!=16'hFD20) begin
+            $display("FAIL two-cubic second curve=%h",pixel_data);$finish_and_return(1);
+        end
+        origin_x=40;scale=4;
+        repeat(3000) @(posedge clk);#1;
+        if(!dut.cache_ready) begin
+            $display("FAIL two-cubic cache after pan/zoom");$finish_and_return(1);
+        end
+        pixel_index=28*96+44;#1;
+        if(pixel_data!=16'h07E0) begin
+            $display("FAIL panned cubic first curve=%h",pixel_data);$finish_and_return(1);
+        end
+        pixel_index=36*96+44;#1;
+        if(pixel_data!=16'hFD20) begin
+            $display("FAIL panned cubic second curve=%h",pixel_data);$finish_and_return(1);
+        end
+
+        $display("PASS graph renderer linear, quadratic, two cubics, zoom, pan and two markers");
         $finish;
     end
 endmodule
