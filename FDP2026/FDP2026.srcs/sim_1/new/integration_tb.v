@@ -237,10 +237,29 @@ module integration_tb;
         sw[15]=0;settle_switches();
         raw_press_d();raw_press_d();raw_press_c();
         if(dut.choice!=3) begin $display("FAIL enter triangle");$finish_and_return(1);end
+        sw[14]=0;settle_switches();raw_press_c();
+        sw[6:0]=3;settle_switches();raw_press_c();
+        sw[6:0]=4;settle_switches();raw_press_c();
+        repeat(12)@(posedge CLOCK);#1;
+        if(dut.triangle.c!==15'd5 || dut.triangle.invalid!==1'b0) begin
+            $display("FAIL integrated triangle hypotenuse");$finish_and_return(1);
+        end
+        capture_oled_frame();
+        if(dut.triangle.graphics.c!==15'd5 || dut.triangle.graphics.state!==2'd3) begin
+            $display("FAIL triangle OLED clock/frame wiring");$finish_and_return(1);
+        end
+        sw[14]=1;settle_switches();sw[14]=0;settle_switches();
+        raw_press_d();raw_press_c();
+        sw[6:0]=4;settle_switches();raw_press_c();
+        sw[6:0]=3;settle_switches();raw_press_c();
+        repeat(4)@(posedge CLOCK);#1;capture_oled_frame();
+        if(dut.triangle.graphics.invalid!==1'b1) begin
+            $display("FAIL integrated triangle error snapshot");$finish_and_return(1);
+        end
         sw[15]=1;settle_switches();
         if(dut.choice!=0) begin $display("FAIL triangle back");$finish_and_return(1);end
 
-        $display("PASS integrated Hanna menu and calculator/graph navigation");
+        $display("PASS integrated menu, calculator/history, graph and triangle arithmetic/OLED snapshots");
         $finish;
     end
 endmodule

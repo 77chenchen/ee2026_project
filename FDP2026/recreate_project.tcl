@@ -46,6 +46,7 @@ set simulation_sources [list \
     [file join $sim_dir menu_renderer_tb.v] \
     [file join $sim_dir compact_text_renderer_tb.v] \
     [file join $sim_dir oled_display_tb.v] \
+    [file join $sim_dir triangle_tb.v] \
     [file join $sim_dir integration_tb.v]]
 
 foreach required_file [concat $design_sources $simulation_sources \

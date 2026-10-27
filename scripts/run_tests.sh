@@ -40,6 +40,9 @@ run_tb oled_display_tb \
 run_tb calculator_signed_divider_tb \
     "$src/calculator_signed_divider.v" "$sim/calculator_signed_divider_tb.v"
 
+run_tb triangle_tb \
+    "$src/right_angle_triangle.v" "$src/triangle_renderer.v" "$sim/triangle_tb.v"
+
 run_tb integration_tb \
     "$src/clock_hz.v" "$src/debounce.v" \
     "$src/signed_switch_input.v" "$src/check_invalid.v" \

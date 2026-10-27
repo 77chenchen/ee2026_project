@@ -77,6 +77,8 @@ It also covers calculator signed division, history recall, divide-by-zero,
 overflow and the top-level OLED startup reset. Graph text tests compare all
 256 signed coefficient labels pixel by pixel and check the full signed Q4
 cursor range. Integration tests check the OLED frame snapshot clock edge.
+Triangle tests cover every pair of 7-bit inputs in both modes, hypotenuses up
+to 179, invalid legs, reset during calculation and the OLED error overlay.
 
 For **actual FPGA resource and timing verification**, open the checked-in
 Vivado project and run this script in Vivado batch mode (adjust the path):
@@ -97,13 +99,16 @@ program a bitstream. Vivado is not installed on this development machine;
 simulation passing is **not** a substitute for a passing implementation
 report and on-board OLED check.
 
-Graph and calculator display parameters are captured on the OLED clock's rising edge; the
+Graph, calculator and triangle display parameters are captured on the OLED clock's rising edge; the
 OLED interface samples each rendered pixel on its falling edge. This gives
 the renderers half of the 6.25 MHz period instead of a final 100 MHz
 cycle, while keeping the view fixed for the frame.
 Calculator snapshots include the result, error flags and all three history
 rows. Calculation and history storage still run at 100 MHz; UI changes appear
 at the next frame boundary.
+Triangle calculations register the input squares and use an eight-cycle
+restoring square root. The completed result and invalid flag are captured
+together for display; incomplete calculations wait for the next frame.
 Decimal text uses bounded eight-bit comparisons and subtraction instead of
 32-bit signed division/remainder in the pixel path.
 
