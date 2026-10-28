@@ -104,7 +104,7 @@ module triangle_tb;
             $display("FAIL maximum hypotenuse display");$finish_and_return(1);
         end
         check_case(1,4,3);capture_frame();
-        pixel_index=25*96+25;#1;
+        pixel_index=25*96+25;@(posedge oled_clk);#1;
         if(dut.frame_invalid!==1'b1 || pixel!==16'hF800) begin
             $display("FAIL triangle error overlay flag=%b pixel=%h",dut.frame_invalid,pixel);
             $finish_and_return(1);

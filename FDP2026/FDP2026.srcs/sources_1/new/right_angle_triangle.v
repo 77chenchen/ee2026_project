@@ -157,6 +157,8 @@ module right_angle_triangle(input CLOCK,
   
   //triangle graphics
   triangle_renderer graphics(.pixel_index(pixel_index),
+                             .x(x),
+                             .y(y),
                              .state(frame_state),
                              .choice(frame_choice),
                              .a(frame_a),
