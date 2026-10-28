@@ -37,7 +37,7 @@ module graph_oled_tb;
         .cursor_enable(1'b0),.cursor_x_q4(16'sd0),.cursor_y_q4(16'sd0),
         .screen_x(),.screen_y(),.pixel_data(pixel_data)
     );
-    Oled_Display oled(
+    Oled_Display #(.ClkFreq(6_250_000)) oled(
         .clk(pixel_clk),.reset(reset),.frame_begin(frame_begin),
         .sending_pixels(sending_pixels),.sample_pixel(sample_pixel),
         .pixel_index(pixel_index),.pixel_data(pixel_data),

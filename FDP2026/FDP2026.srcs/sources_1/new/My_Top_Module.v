@@ -63,7 +63,7 @@ module My_Top_Module (input CLOCK,
     assign JB[6] = oled_vccen;
     assign JB[7] = oled_pmoden;
     
-    Oled_Display oled (
+    Oled_Display #(.ClkFreq(6_250_000)) oled (
         .clk(clk6p25m),
         .reset(oled_reset),
 
