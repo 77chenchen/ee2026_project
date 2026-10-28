@@ -1,24 +1,21 @@
 `timescale 1ns / 1ps
 
-// 96x64 RGB565 renderer: 100 MHz curve calculation, OLED-clock column read,
-// then combinational overlays before the OLED falling-edge pixel sample.
+// Direct combinational linear/quadratic renderer. Its parameters are frozen
+// in the OLED clock domain by graph_mode_integration. No curve RAM, cubic
+// datapath or rebuild state is needed; overlays use the same pixel address.
 module graph_renderer #(
     parameter INCLUDE_TEXT = 1
 ) (
-    input  wire clk, pixel_clk,
     input  wire [12:0] pixel_index,
     input  wire [1:0]  graph_count,
     input  wire        graph1_type,
     input  wire        graph2_type,
-    input  wire        cubic1, cubic2,
     input  wire signed [7:0] a1,
     input  wire signed [7:0] b1,
     input  wire signed [7:0] c1,
-    input  wire signed [7:0] d1,
     input  wire signed [7:0] a2,
     input  wire signed [7:0] b2,
     input  wire signed [7:0] c2,
-    input  wire signed [7:0] d2,
     input  wire signed [7:0] current_input,
     input  wire [2:0]  controller_state,
     input  wire        current_graph,
@@ -46,7 +43,7 @@ module graph_renderer #(
     localparam [2:0] ENTER_A      = 3'd2;
     localparam [2:0] ENTER_B      = 3'd3;
     localparam [2:0] ENTER_C      = 3'd4;
-    localparam [2:0] ENTER_D      = 3'd5;
+    localparam [2:0] NEXT_GRAPH   = 3'd5;
     localparam [2:0] READY        = 3'd6;
     localparam [2:0] VIEW_GRAPH   = 3'd7;
 
@@ -72,22 +69,43 @@ module graph_renderer #(
 
     wire signed [4:0] graph_scale_signed =
         $signed({1'b0, scale_px_per_unit});
-    wire cache_ready;
-    wire [13:0] bounds1,bounds2;
-    reg [5:0] curve_screen_y=0;
-    // The RAM read and row belong to the same requested pixel. The OLED
-    // changes pixel_index on falling edges and samples on a later falling
-    // edge, leaving this rising-edge stage half a cycle to settle.
-    always @(posedge pixel_clk) curve_screen_y<=screen_y;
-    graph_curve_cache curve_cache(
-        .clk(clk),.pixel_clk(pixel_clk),.enable(draw_enable),.screen_x(screen_x),
-        .origin_x(origin_x),.origin_y(origin_y),.scale(scale_px_per_unit),
-        .graph1_type(graph1_type),.graph2_type(graph2_type),
-        .cubic1(cubic1),.cubic2(cubic2),
-        .a1(a1),.b1(b1),.c1(c1),.d1(d1),
-        .a2(a2),.b2(b2),.c2(c2),.d2(d2),
-        .ready(cache_ready),.bounds1(bounds1),.bounds2(bounds2)
-    );
+    // Restore the previous direct datapath, with explicitly bounded signed
+    // widths rather than 32-bit integer multipliers. Reuse x^2 for both
+    // curves. Scale is 1/2/4/8 pixels per unit, so quadratic scaling is a
+    // signed arithmetic shift, not a divider.
+    wire signed [8:0] graph_dx=$signed({2'b0,screen_x})-$signed({2'b0,origin_x});
+    wire signed [8:0] graph_dx_previous=graph_dx-9'sd1;
+    wire signed [17:0] dx_squared=graph_dx*graph_dx;
+    wire signed [17:0] dx_previous_squared=graph_dx_previous*graph_dx_previous;
+    wire signed [16:0] linear1=$signed(b1)*graph_dx;
+    wire signed [16:0] linear2=$signed(b2)*graph_dx;
+    wire signed [16:0] linear1_previous=$signed(b1)*graph_dx_previous;
+    wire signed [16:0] linear2_previous=$signed(b2)*graph_dx_previous;
+    wire signed [12:0] offset1=$signed(c1)*graph_scale_signed;
+    wire signed [12:0] offset2=$signed(c2)*graph_scale_signed;
+    wire signed [25:0] quadratic1=$signed(a1)*dx_squared;
+    wire signed [25:0] quadratic2=$signed(a2)*dx_squared;
+    wire signed [25:0] quadratic1_previous=$signed(a1)*dx_previous_squared;
+    wire signed [25:0] quadratic2_previous=$signed(a2)*dx_previous_squared;
+    wire [1:0] scale_shift=(scale_px_per_unit==8)?2'd3:
+                           (scale_px_per_unit==4)?2'd2:
+                           (scale_px_per_unit==2)?2'd1:2'd0;
+    wire signed [26:0] curve1_y=linear1+offset1+
+        (graph1_type?(quadratic1 >>> scale_shift):27'sd0);
+    wire signed [26:0] curve2_y=linear2+offset2+
+        (graph2_type?(quadratic2 >>> scale_shift):27'sd0);
+    wire signed [26:0] curve1_y_previous=linear1_previous+offset1+
+        (graph1_type?(quadratic1_previous >>> scale_shift):27'sd0);
+    wire signed [26:0] curve2_y_previous=linear2_previous+offset2+
+        (graph2_type?(quadratic2_previous >>> scale_shift):27'sd0);
+    wire signed [27:0] curve1_screen=$signed({1'b0,origin_y})-curve1_y;
+    wire signed [27:0] curve2_screen=$signed({1'b0,origin_y})-curve2_y;
+    wire signed [27:0] curve1_previous=$signed({1'b0,origin_y})-curve1_y_previous;
+    wire signed [27:0] curve2_previous=$signed({1'b0,origin_y})-curve2_y_previous;
+    wire signed [27:0] curve1_min=(curve1_screen<curve1_previous)?curve1_screen:curve1_previous;
+    wire signed [27:0] curve1_max=(curve1_screen>curve1_previous)?curve1_screen:curve1_previous;
+    wire signed [27:0] curve2_min=(curve2_screen<curve2_previous)?curve2_screen:curve2_previous;
+    wire signed [27:0] curve2_max=(curve2_screen>curve2_previous)?curve2_screen:curve2_previous;
     wire signed [20:0] intersection_x_scaled =
         $signed(intersection_x_q4) * graph_scale_signed;
     wire signed [20:0] intersection_y_scaled =
@@ -275,13 +293,11 @@ module graph_renderer #(
         // Join adjacent x-column samples.  This keeps steep lines continuous
         // without turning them into the wide bands produced by slope-sized
         // vertical tolerances.
-        graph1_pixel = draw_enable && cache_ready && bounds1[13:7]!=7'd127 &&
-                       (({1'b0,curve_screen_y}+1) >= bounds1[13:7]) &&
-                       (curve_screen_y <= (bounds1[6:0]+1));
-        graph2_pixel = draw_enable && cache_ready && (graph_count == 2) &&
-                       bounds2[13:7]!=7'd127 &&
-                       (({1'b0,curve_screen_y}+1) >= bounds2[13:7]) &&
-                       (curve_screen_y <= (bounds2[6:0]+1));
+        graph1_pixel = draw_enable && (curve1_min<=63) && (curve1_max>=0) &&
+                       (py>=curve1_min-1) && (py<=curve1_max+1);
+        graph2_pixel = draw_enable && (graph_count==2) &&
+                       (curve2_min<=63) && (curve2_max>=0) &&
+                       (py>=curve2_min-1) && (py<=curve2_max+1);
 
         marker_x = ox + (intersection_x_scaled >>> 4);
         marker_y = oy - (intersection_y_scaled >>> 4);
@@ -327,17 +343,13 @@ module graph_renderer #(
             if (controller_state == SELECT_COUNT)
                 input_pixel = font_pixel(current_input[0]?"2":"1",px,py,42,20);
             else if (controller_state == SELECT_TYPE) begin
-                if (current_input[1])
-                    input_pixel=font_pixel("C",px,py,34,20)||font_pixel("U",px,py,40,20)||
-                                font_pixel("B",px,py,46,20)||font_pixel("I",px,py,52,20)||
-                                font_pixel("C",px,py,58,20);
-                else if (current_input[0])
+                if (current_input[0])
                     input_pixel=font_pixel("Q",px,py,34,20)||font_pixel("U",px,py,40,20)||
                                 font_pixel("A",px,py,46,20)||font_pixel("D",px,py,52,20);
                 else
                     input_pixel=font_pixel("L",px,py,37,20)||font_pixel("I",px,py,43,20)||font_pixel("N",px,py,49,20);
             end else if ((controller_state==ENTER_A)||(controller_state==ENTER_B)||
-                         (controller_state==ENTER_C)||(controller_state==ENTER_D)) begin
+                         (controller_state==ENTER_C)) begin
                 input_pixel=((current_input<0)&&font_pixel("-",px,py,34,20))||
                             ((input_magnitude>=8'd100)&&font_pixel(digit_character(input_digits[11:8]),px,py,40,20))||
                             ((input_magnitude>=8'd10)&&font_pixel(digit_character(input_digits[7:4]),px,py,46,20))||
@@ -359,8 +371,6 @@ module graph_renderer #(
             title_pixel = font_pixel("B",px,py,2,2)||font_pixel(current_graph ? "2":"1",px,py,8,2);
         end else if (INCLUDE_TEXT && (controller_state == ENTER_C)) begin
             title_pixel = font_pixel("C",px,py,2,2)||font_pixel(current_graph ? "2":"1",px,py,8,2);
-        end else if (INCLUDE_TEXT && (controller_state == ENTER_D)) begin
-            title_pixel = font_pixel("D",px,py,2,2)||font_pixel(current_graph ? "2":"1",px,py,8,2);
         end else if (INCLUDE_TEXT && (controller_state == READY)) begin
             title_pixel = font_pixel("R",px,py,2,2)||font_pixel("E",px,py,8,2)||font_pixel("A",px,py,14,2)||
                           font_pixel("D",px,py,20,2)||font_pixel("Y",px,py,26,2);
@@ -370,7 +380,7 @@ module graph_renderer #(
         end
 
         action_pixel = 1'b0;
-        if (INCLUDE_TEXT && (controller_state <= ENTER_D)) begin
+        if (INCLUDE_TEXT && (controller_state < NEXT_GRAPH)) begin
             action_pixel = font_pixel("C",px,py,2,55)||font_pixel("S",px,py,14,55)||
                            font_pixel("A",px,py,20,55)||font_pixel("V",px,py,26,55)||font_pixel("E",px,py,32,55);
         end else if (INCLUDE_TEXT && (controller_state == READY)) begin

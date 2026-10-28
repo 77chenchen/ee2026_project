@@ -180,36 +180,34 @@ module integration_tb;
         sw[15]=0; settle_switches(); raw_press_d(); raw_press_c();
         if(dut.choice!=2) begin $display("FAIL enter graph"); $finish_and_return(1); end
 
-        // Exercise the actual Hanna-top graph wiring, including SW1 cubic
-        // selection and the signed coefficient path through the synchronizer.
+        // SW0 alone selects the type. SW1 must no longer enter a fourth-
+        // coefficient mode; it remains an ordinary signed-input data bit.
         sw[7:0]=0;settle_switches();raw_press_c(); // one graph
-        sw[1]=1;settle_switches();raw_press_c(); // cubic
-        if(!dut.graphnator.controller.cubic1 ||
+        sw[7:0]=3;settle_switches();raw_press_c(); // quadratic, SW1 also high
+        if(!dut.graphnator.controller.graph1_type ||
            dut.graphnator.controller.state!=3'd2) begin
-            $display("FAIL integrated cubic selection");$finish_and_return(1);
+            $display("FAIL integrated quadratic selection");$finish_and_return(1);
         end
         sw[7:0]=8'sd1;settle_switches();raw_press_c();
-        sw[7:0]=8'sd2;settle_switches();raw_press_c();
         sw[7:0]=-8'sd3;settle_switches();raw_press_c();
         sw[7:0]=8'sd4;settle_switches();raw_press_c();
         if(!dut.graphnator.controller.ready ||
            dut.graphnator.controller.a1!=1 ||
-           dut.graphnator.controller.b1!=2 ||
-           dut.graphnator.controller.c1!=-3 ||
-           dut.graphnator.controller.d1!=4) begin
-            $display("FAIL integrated cubic input");$finish_and_return(1);
+           dut.graphnator.controller.b1!=-3 ||
+           dut.graphnator.controller.c1!=4) begin
+            $display("FAIL integrated quadratic input");$finish_and_return(1);
         end
         sw[14]=1;settle_switches();
         if(!dut.graphnator.controller.draw) begin
-            $display("FAIL integrated cubic draw");$finish_and_return(1);
+            $display("FAIL integrated quadratic draw");$finish_and_return(1);
         end
         // Frame coefficients are captured on the OLED rising edge, leaving
         // the half-cycle before its falling-edge SPI pixel sample.
         force dut.frame_begin=1'b1;
         @(posedge dut.clk6p25m);#1;
         release dut.frame_begin;
-        if(dut.graphnator.frame_a1!=1 || dut.graphnator.frame_b1!=2 ||
-           dut.graphnator.frame_c1!=-3 || dut.graphnator.frame_d1!=4 ||
+        if(dut.graphnator.frame_a1!=1 || dut.graphnator.frame_b1!=-3 ||
+           dut.graphnator.frame_c1!=4 ||
            dut.graphnator.frame_input!=4) begin
             $display("FAIL OLED-clock graph frame snapshot");$finish_and_return(1);
         end

@@ -1,8 +1,8 @@
 `timescale 1ns / 1ps
 
-// End-to-end test of the registered cache read, pixel address and real SPI
+// End-to-end test of direct curve evaluation, pixel address and real SPI
 // serialization. The oracle evaluates the functions independently, rather
-// than comparing the renderer against its own cached RAM contents.
+// than comparing the renderer against its own intermediate values.
 module graph_oled_tb;
     reg clk=0;
     always #5 clk=~clk;
@@ -10,8 +10,8 @@ module graph_oled_tb;
     always @(posedge clk) divider<=divider+1'b1;
     wire pixel_clk=divider[3];
     reg reset=1;
-    reg quadratic1=0,cubic2=0;
-    reg signed [7:0] a1=0,b1=1,c1=0,a2=0,b2=-1,c2=0,d2=0;
+    reg quadratic1=0,quadratic2=0;
+    reg signed [7:0] a1=0,b1=1,c1=0,a2=0,b2=-1,c2=0;
     reg [3:0] scale=4;
     reg [6:0] ox=48;
     reg [5:0] oy=32;
@@ -21,14 +21,12 @@ module graph_oled_tb;
     wire cs,sdin,sclk,d_cn;
     integer word_count=0,bit_count=0,frames=0,view;
     reg [15:0] serial_word=0;
-    time last_read_edge=0;
 
     graph_renderer #(.INCLUDE_TEXT(0)) graph(
-        .clk(clk),.pixel_clk(pixel_clk),.pixel_index(pixel_index),
-        .graph_count(2'd2),.graph1_type(quadratic1),.graph2_type(1'b0),
-        .cubic1(1'b0),.cubic2(cubic2),
-        .a1(a1),.b1(b1),.c1(c1),.d1(8'sd0),
-        .a2(a2),.b2(b2),.c2(c2),.d2(d2),
+        .pixel_index(pixel_index),
+        .graph_count(2'd2),.graph1_type(quadratic1),.graph2_type(quadratic2),
+        .a1(a1),.b1(b1),.c1(c1),
+        .a2(a2),.b2(b2),.c2(c2),
         .current_input(8'sd0),.controller_state(3'd7),.current_graph(1'b0),
         .draw_enable(1'b1),.graph_status(3'd0),
         .intersection_valid(1'b1),.intersection_x_q4(-16'sd16),
@@ -49,12 +47,7 @@ module graph_oled_tb;
     // Power sequencing has its own unaccelerated oled_display_tb. Skip only
     // those settling counters here; retain the real SPI FSM and bit timing.
     always @(posedge pixel_clk) begin
-        last_read_edge=$time;
         if (!reset && !sending_pixels) oled.delay=0;
-    end
-    always @(graph.bounds1 or graph.bounds2 or graph.cache_ready) begin
-        if ($time>0 && $time!=last_read_edge)
-            $fatal(1,"cache display outputs changed outside the OLED read edge");
     end
 
     function integer floor_div;
@@ -66,7 +59,7 @@ module graph_oled_tb;
     endfunction
     function integer curve_y;
         input integer graph_number,column;
-        integer x,numerator,av,bv,cv,dv,s,y0;
+        integer x,numerator,av,bv,cv,s,y0;
         begin
             x=column-ox;s=scale;y0=oy;
             // Widen signed coefficients before mixing them with unsigned
@@ -74,15 +67,9 @@ module graph_oled_tb;
             av=(graph_number==0)?a1:a2;
             bv=(graph_number==0)?b1:b2;
             cv=(graph_number==0)?c1:c2;
-            dv=(graph_number==0)?8'sd0:d2;
-            if (graph_number==0) begin
-                if (quadratic1) begin
-                    numerator=av*x*x+bv*x*s+cv*s*s;
-                    curve_y=y0-floor_div(numerator,s);
-                end else curve_y=y0-(bv*x+cv*s);
-            end else if (cubic2) begin
-                numerator=av*x*x*x+bv*x*x*s+cv*x*s*s+dv*s*s*s;
-                curve_y=y0-floor_div(numerator,s*s);
+            if ((graph_number==0)?quadratic1:quadratic2) begin
+                numerator=av*x*x+bv*x*s+cv*s*s;
+                curve_y=y0-floor_div(numerator,s);
             end else curve_y=y0-(bv*x+cv*s);
         end
     endfunction
@@ -127,7 +114,6 @@ module graph_oled_tb;
 
     always @(posedge sending_pixels) begin
         word_count=0;bit_count=0;serial_word=0;
-        if (!graph.cache_ready) $fatal(1,"cache not ready at SPI frame start");
     end
     always @(posedge sclk) begin
         if (!cs && d_cn) begin
@@ -156,26 +142,22 @@ module graph_oled_tb;
         #1;reset=0;
         for(view=0;view<4;view=view+1) begin
             if (view>0) begin
-                // Change the complete view between transmitted frames. The
-                // writer must invalidate, rebuild, and publish fresh bounds.
-                quadratic1=1;cubic2=1;
+                // View changes do not need a RAM rebuild. Test a mixed pair
+                // and two quadratics at minimum/maximum zoom and after pan.
+                quadratic1=1;quadratic2=1;
                 a1=1;b1=-2;c1=-3;
-                a2=-1;b2=2;c2=1;d2=-2;
+                a2=-1;b2=2;c2=1;
                 case(view)
-                    1: begin scale=1;ox=48;oy=32;end
+                    1: begin quadratic1=0;scale=1;ox=48;oy=32;end
                     2: begin scale=8;ox=48;oy=32;end
                     3: begin scale=2;ox=40;oy=24;end
                 endcase
-                repeat(2) @(posedge pixel_clk);
-                #1;
-                if (graph.cache_ready)
-                    $fatal(1,"old cache was not invalidated after view change");
             end
             wait(sending_pixels);
             @(negedge sending_pixels);#1;
         end
         if (frames!=4) $fatal(1,"expected four complete graph frames");
-        $display("PASS graph OLED SPI: 24576 RGB565 pixels, row boundaries, two markers, linear/quadratic/cubic, zoom and pan");
+        $display("PASS direct graph OLED SPI: 24576 RGB565 pixels, row boundaries, two markers, linear/quadratic, zoom and pan");
         $finish;
     end
     initial begin

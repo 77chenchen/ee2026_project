@@ -6,12 +6,15 @@
 timing repairs without adding mouse hardware, changing the JB OLED pinout,
 or rewriting the menu/debouncer. The archived teammate sources, including
 Oskar's original `graph_controller.v`, remain unchanged.
+The subsequent simplification removes third-degree graphs and restores direct
+linear/quadratic rendering, while retaining OLED-domain display snapshots,
+sequential arithmetic, two-root intersections and both clock constraints.
 
 | Requirement | Implementation |
 | --- | --- |
 | OLED-domain display state | Graph, calculator/history and triangle display snapshots use the OLED rising edge. The OLED SPI core consumes pixels on the falling edge. |
-| Bounded arithmetic stages | Calculator division takes eight restoring steps; triangle square root takes eight restoring steps. Quadratic discriminant products, subtraction, sign/root classification, trial-square comparison, division and coordinate projection are separate stages. Curve evaluation also registers products before projection/clipping. |
-| Aligned curve readout | Cache bounds, their validity and the pixel row are registered on the OLED rising edge. Rebuilding tables are masked. |
+| Bounded arithmetic stages | Calculator division takes eight restoring steps; triangle square root takes eight restoring steps. Quadratic discriminant products, subtraction, sign/root classification, trial-square comparison, division and coordinate projection are separate stages. |
+| Direct aligned curves | Linear/quadratic curves and overlays use the same pixel address without a cache or pixel-read pipeline. Multipliers have bounded signed widths, and the viewport/coefficients remain frozen for the frame. |
 | Complete internal clock checks | The real 100 MHz input and its related divide-by-16 OLED clock are constrained. No false-path or multicycle exception is added to hide a failing data path. |
 
 The top-level changes are limited to OLED startup reset and the clock/frame
@@ -29,8 +32,10 @@ Run from the repository root:
 The suite exhausts all 65,536 signed 8-bit division input pairs, includes
 32,772 triangle cases, and has an independent pixel oracle
 checking 24,576 actual serialized OLED RGB565 words across four graph frames.
-It covers linear/quadratic/cubic rendering, both intersection markers, zoom
-and pan. The Tcl checker has 18 mocked control-flow cases, including negative
+It covers linear/quadratic rendering, both intersection markers, zoom
+and pan. A separate direct-arithmetic oracle checks 196,608 pixel positions
+with signed coefficient endpoints and viewport clipping. The Tcl checker has
+18 mocked control-flow cases, including negative
 setup/hold/pulse slack, missing/wrong clocks, incomplete clock coverage and
 failed routing. Mock checks do **not** perform FPGA implementation.
 
@@ -88,3 +93,6 @@ checker tests can run locally; fresh routed slack/resource results must come
 from the Windows Vivado run above. Reports from earlier commits cannot certify
 this branch. After implementation passes, generate a new bitstream and check
 the OLED/menu, calculator/history, triangle and graph modes on the Basys3.
+Direct curve evaluation adds combinational multipliers in place of the shared
+cache evaluator, so resource use and timing must be remeasured; neither is
+assumed to improve merely because third-degree support was removed.

@@ -135,16 +135,10 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/new/graph_cubic_input.v">
-        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
-      </File>
       <File Path="$PSRCDIR/sources_1/new/graph_quadratic_intersections.v">
         <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
       </File>
       <File Path="$PSRCDIR/sources_1/new/graph_controller_adapter.v">
-        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sources_1/new/graph_curve_cache.v">
         <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
       </File>
       <File Path="$PSRCDIR/sources_1/new/graph_renderer.v">

@@ -21,9 +21,7 @@ module ui_frame_dump_tb;
         .history_2(16'sd200),.recall_error(1'b0),.pixel_data(calc_pixel)
     );
     graph_renderer graph(
-        .clk(clk),.pixel_clk(pixel_clk),
         .pixel_index(pixel_index),.graph_count(2'd2),.graph1_type(1'b0),.graph2_type(1'b1),
-        .cubic1(1'b0),.cubic2(1'b0),.d1(8'sd0),.d2(8'sd0),
         .a1(8'sd0),.b1(8'sd1),.c1(8'sd0),.a2(8'sd1),.b2(8'sd0),.c2(-8'sd3),.current_input(graph_input),
         .controller_state(graph_state),.current_graph(1'b0),.draw_enable(graph_draw),.graph_status(3'd0),
         .intersection_valid(1'b1),.intersection_x_q4(16'sd0),.intersection_y_q4(16'sd0),
@@ -46,7 +44,7 @@ module ui_frame_dump_tb;
 
     initial begin
         pixel_index=0;
-        wait(graph.cache_ready);
+        #1;
         f=$fopen("menu.ppm","w"); $fwrite(f,"P3\n96 64\n255\n");
         for(i=0;i<6144;i=i+1)begin pixel_index=i;#1;write_rgb(f,menu_pixel);end $fclose(f);
         f=$fopen("calculator.ppm","w"); $fwrite(f,"P3\n96 64\n255\n");

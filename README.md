@@ -12,13 +12,12 @@ Graph extensions live in separate adapter, solver and renderer files.
   multiplication and division; full result, invalid and overflow displays.
   Division uses eight clocked steps after the second operand is saved, so a
   recalled history value does not feed a combinational divider in one cycle.
-- Graph: one or two linear `y=Bx+C`, quadratic `y=Ax²+Bx+C`, or cubic
-  `y=Ax³+Bx²+Cx+D` plots. A mixed pair is allowed. Graph 1 is green and
+- Graph: one or two linear `y=Bx+C` or quadratic `y=Ax²+Bx+C` plots.
+  A mixed pair is allowed. Graph 1 is green and
   Graph 2 orange, with axes, grid, zoom and pan.
 - Graph intersections: two linear, linear–quadratic and two quadratic graphs.
   The latter two can have zero, one or two real roots. Visible roots receive
   white crosses; `PAR`, `SAME`, `OUT`, `NO` or `ERR` is shown when appropriate.
-  Cubic intersections are not implemented; cubic graphs are plot-only.
 - Right-angle triangle mode from Hanna's top-level integration.
 
 ## Controls
@@ -31,10 +30,10 @@ debounced and routed only to the active mode. `SW7..SW0` represent a signed
 For Graph Mode:
 
 1. At `COUNT`, set `SW0=0` for one graph or `SW0=1` for two, then press `BTNC`.
-2. At `TYPE1` (and `TYPE2` if needed), select line with `SW0=0, SW1=0`,
-   quadratic with `SW0=1, SW1=0`, or cubic with `SW1=1`. Press `BTNC`.
+2. At `TYPE1` (and `TYPE2` if needed), select line with `SW0=0` or
+   quadratic with `SW0=1`. Press `BTNC`. `SW1` no longer selects a graph type.
 3. Set each coefficient on `SW7..SW0` and press `BTNC` to save it. A line
-   takes `B,C`; a quadratic takes `A,B,C`; a cubic takes `A,B,C,D`.
+   takes `B,C`; a quadratic takes `A,B,C`.
 4. At `READY`, lower and then raise `SW14` to draw. In the graph view,
    `BTNL`/`BTNR` pan horizontally and `BTNU`/`BTND` pan vertically.
    Holding `SW13` changes the latter buttons to zoom in/out through
@@ -42,8 +41,8 @@ For Graph Mode:
 
 The OLED labels the current input stage and shows the signed switch value.
 At zoom 1 or 2, the grid remains at least eight pixels apart so it does not
-cover the curves. A plot cache is rebuilt after coefficients or view settings
-change; rendering resumes from the next complete OLED frame.
+cover the curves. Curves are computed directly from the current pixel column
+and the OLED-frame snapshot; there is no curve cache or rebuild delay.
 
 The optional PS/2 mouse and coordinate cursor modules remain in the
 repository, but are excluded from the resource-constrained synthesis top.
@@ -74,9 +73,11 @@ On a machine with Icarus Verilog, run:
 ./scripts/run_tests.sh
 ```
 
-The suite checks controller input, 0/1/2 intersections, signed cubic and
+The suite checks controller input, 0/1/2 intersections, signed linear and
 quadratic pixels at multiple zoom levels, both markers, OLED reset and all
 6144 transmitted pixels, and routing through Hanna's top-level menu.
+The direct renderer is additionally checked at 196,608 pixel positions for
+signed coefficient endpoints, four zoom levels, mixed pairs and clipping.
 It also covers calculator signed division, history recall, divide-by-zero,
 overflow and the top-level OLED startup reset. Graph text tests compare all
 256 signed coefficient labels pixel by pixel and check the full signed Q4
@@ -119,19 +120,21 @@ together for display; incomplete calculations wait for the next frame.
 Decimal text uses bounded eight-bit comparisons and subtraction instead of
 32-bit signed division/remainder in the pixel path.
 
-The graph curve cache reuses one multiplier across columns and registers the
-coordinate, evaluated height and screen projection before the column-table
-write. The intersection solver also reuses a sequential divider instead of instantiating a wide
-combinational divider. These choices reduce logic use, but only a fresh
-Vivado report can establish whether the final design fits and meets timing.
+The renderer uses the previous direct combinational linear/quadratic scheme,
+with bounded signed multiplier widths and shared current/previous `x^2`
+terms. Adjacent-column ranges retain continuous steep curves; quadratic
+scaling uses arithmetic shifts and keeps the minimum-zoom grid fix. Third-
+degree input/rendering and the curve RAM/FSM have been removed. Display
+parameters still latch in the OLED domain; arithmetic/intersection timing
+repairs and both clock constraints remain in place. Removing the cache is
+an architectural tradeoff, not proof of lower utilization or passing timing:
+the direct multipliers require a fresh Vivado implementation report.
 
-Curve-table readout is registered on the OLED rising edge, together with its
-valid flag and pixel row. The 100 MHz RAM-write path therefore stops at a
-small OLED read stage, rather than continuing through curve comparisons,
-colour overlays and the SPI shift-register input. Invalid/rebuilding tables
-are masked. No clock period or false-path exception is relaxed by this fix.
+The intersection solver reuses a sequential divider instead of instantiating
+a wide combinational divider. No clock period or false-path exception is
+relaxed to hide a failing path.
 `graph_oled_tb` checks 24,576 actual serialized RGB565 pixel words across four
-complete frames, including linear/quadratic/cubic curves, both markers,
+complete frames, including linear/quadratic curves, both markers,
 minimum/maximum zoom and pan, using an independent arithmetic pixel oracle.
 The resource checker exports routed diagnostics even when Vivado reports
 `route_design Complete, Failed Timing!`, and still rejects negative slack.

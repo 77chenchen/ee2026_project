@@ -8,9 +8,7 @@ module graph_renderer_tb;
     reg [12:0] pixel_index=0;
     reg [1:0] graph_count=2;
     reg graph1_type=0, graph2_type=0;
-    reg cubic1=0,cubic2=0;
     reg signed [7:0] a1=0,b1=1,c1=0,a2=0,b2=-1,c2=0;
-    reg signed [7:0] d1=0,d2=0;
     reg signed [7:0] current_input=0;
     reg [2:0] state=7;
     reg current_graph=0, draw=1;
@@ -29,15 +27,14 @@ module graph_renderer_tb;
     integer i, green_count, orange_count, white_count, red_count;
     integer input_value, text_x, text_y, magnitude, x_magnitude, y_magnitude;
     integer x_integer, y_integer;
+    integer coefficient_case,zoom_level,column,row,checked_pixels=0;
     reg expected_text;
 
     graph_renderer dut(
-        .clk(clk),.pixel_clk(pixel_clk),
         .pixel_index(pixel_index),.graph_count(graph_count),
         .graph1_type(graph1_type),.graph2_type(graph2_type),
-        .cubic1(cubic1),.cubic2(cubic2),
-        .a1(a1),.b1(b1),.c1(c1),.d1(d1),
-        .a2(a2),.b2(b2),.c2(c2),.d2(d2),
+        .a1(a1),.b1(b1),.c1(c1),
+        .a2(a2),.b2(b2),.c2(c2),
         .current_input(current_input),
         .controller_state(state),.current_graph(current_graph),.draw_enable(draw),
         .graph_status(status),.intersection_valid(intersection_valid),
@@ -49,21 +46,8 @@ module graph_renderer_tb;
         .screen_x(screen_x),.screen_y(screen_y),.pixel_data(pixel_data)
     );
 
-    task wait_cache;
-        integer cycles;
-        begin
-            // Allow the OLED read stage to invalidate an old view before
-            // waiting for the new 100 MHz table build to finish.
-            repeat(2) @(posedge pixel_clk);
-            #1;
-            for(cycles=0; !dut.cache_ready && cycles<4000; cycles=cycles+1) begin
-                @(posedge clk);#1;
-            end
-            if(!dut.cache_ready) begin
-                $display("FAIL graph cache timeout phase=%0d",dut.curve_cache.phase);
-                $finish_and_return(1);
-            end
-        end
+    task settle_view;
+        begin #1; end
     endtask
 
     task sample_current_pixel;
@@ -95,8 +79,34 @@ module graph_renderer_tb;
         end
     endfunction
 
+    function integer test_coefficient;
+        input integer index;
+        begin
+            case(index & 7)
+                0:test_coefficient=-128; 1:test_coefficient=-127;
+                2:test_coefficient=-1;   3:test_coefficient=0;
+                4:test_coefficient=1;    5:test_coefficient=2;
+                6:test_coefficient=126;  default:test_coefficient=127;
+            endcase
+        end
+    endfunction
+
+    function reference_curve_pixel;
+        input integer ca,cb,cc,quadratic,x,y,s,ox,oy;
+        integer n0,n1,dx0,dx1,h0,h1,lo,hi;
+        begin
+            dx0=x-ox-1;dx1=x-ox;
+            n0=(quadratic?ca*dx0*dx0:0)+cb*dx0*s+cc*s*s;
+            n1=(quadratic?ca*dx1*dx1:0)+cb*dx1*s+cc*s*s;
+            h0=oy-((n0<0)?-((-n0+s-1)/s):n0/s);
+            h1=oy-((n1<0)?-((-n1+s-1)/s):n1/s);
+            lo=(h0<h1)?h0:h1;hi=(h0>h1)?h0:h1;
+            reference_curve_pixel=(lo<=63 && hi>=0 && y>=lo-1 && y<=hi+1);
+        end
+    endfunction
+
     initial begin
-        wait_cache();
+        settle_view();
         green_count=0; orange_count=0; white_count=0;
         for(i=0;i<6144;i=i+1) begin
             pixel_index=i; sample_current_pixel();
@@ -123,7 +133,7 @@ module graph_renderer_tb;
 
         status=0; graph1_type=1; a1=1; b1=0; cursor_enable=1;
         intersection_valid=0; origin_x=40; origin_y=20;
-        wait_cache();
+        settle_view();
         pixel_index=20*96+40; sample_current_pixel();
         if(pixel_data!=16'h07FF) begin
             $display("FAIL cursor/pan got=%h",pixel_data);
@@ -140,16 +150,15 @@ module graph_renderer_tb;
             $finish_and_return(1);
         end
 
-        // Zooming out must retain a readable grid and correct signed cubic
+        // Zooming out must retain a readable grid and correct signed quadratic
         // pixels. At scale 1, x=1 maps one pixel right and y=1 one pixel up.
-        graph_count=1;graph1_type=0;cubic1=1;
-        a1=1;b1=0;c1=0;d1=0;
+        graph_count=1;graph1_type=1;
+        a1=1;b1=0;c1=0;
         origin_x=48;origin_y=32;scale=1;
-        wait_cache();
+        settle_view();
         pixel_index=31*96+49;sample_current_pixel();
         if(pixel_data!=16'h07E0) begin
-            $display("FAIL cubic zoom-out pixel=%h ready=%b phase=%0d bounds=%h",
-                     pixel_data,dut.cache_ready,dut.curve_cache.phase,dut.bounds1);
+            $display("FAIL quadratic zoom-out pixel=%h",pixel_data);
             $finish_and_return(1);
         end
         // No every-other-column grid flood at minimum scale.
@@ -157,31 +166,29 @@ module graph_renderer_tb;
         if(pixel_data==16'h2104) begin
             $display("FAIL zoom-out grid flood");$finish_and_return(1);
         end
-        // Use all four coefficients and a negative x value as well.
-        // y=x^3+2x^2-3x+1: f(1)=1 and f(-1)=5.
-        b1=2;c1=-3;d1=1;scale=4;
-        wait_cache();
-        pixel_index=28*96+52;sample_current_pixel();
+        // y=x^2+2x-3: f(1)=0 and f(-1)=-4.
+        b1=2;c1=-3;scale=4;
+        settle_view();
+        pixel_index=32*96+52;sample_current_pixel();
         if(pixel_data!=16'h07E0) begin
-            $display("FAIL full cubic positive x=%h ready=%b bounds=%h",
-                     pixel_data,dut.cache_ready,dut.bounds1);
+            $display("FAIL full quadratic positive x=%h",pixel_data);
             $finish_and_return(1);
         end
-        pixel_index=12*96+44;sample_current_pixel();
+        pixel_index=48*96+44;sample_current_pixel();
         if(pixel_data!=16'h07E0) begin
-            $display("FAIL full cubic negative x=%h",pixel_data);$finish_and_return(1);
+            $display("FAIL full quadratic negative x=%h",pixel_data);$finish_and_return(1);
         end
-        cubic1=0;graph1_type=1;a1=1;b1=2;c1=-3;d1=0;
-        wait_cache();
+        graph1_type=1;a1=1;b1=2;c1=-3;
+        settle_view();
         // x=2 => y=5, so screen (56,12) at four pixels per unit.
         pixel_index=12*96+56;sample_current_pixel();
         if(pixel_data!=16'h07E0) begin
             $display("FAIL full quadratic zoom scale=%h",pixel_data);$finish_and_return(1);
         end
         // Both independent intersection positions are rendered.
-        cubic1=0;intersection_valid=1;intersection2_valid=1;
+        intersection_valid=1;intersection2_valid=1;
         ix=-16;iy=0;ix2=16;iy2=0;scale=4;
-        wait_cache();
+        settle_view();
         pixel_index=32*96+44;sample_current_pixel();
         if(pixel_data!=16'hFFFF) begin
             $display("FAIL first marker=%h",pixel_data);$finish_and_return(1);
@@ -191,39 +198,67 @@ module graph_renderer_tb;
             $display("FAIL second marker=%h",pixel_data);$finish_and_return(1);
         end
 
-        // Both cubic caches must finish with the extra timing pipeline.
+        // Both quadratic graphs are evaluated directly, including opposite
+        // signs and view changes. No cache rebuild or ready wait is needed.
         intersection_valid=0;intersection2_valid=0;
-        graph_count=2;graph1_type=0;graph2_type=0;cubic1=1;cubic2=1;
-        a1=1;b1=0;c1=0;d1=0;
-        a2=-1;b2=0;c2=0;d2=0;
+        graph_count=2;graph1_type=1;graph2_type=1;
+        a1=1;b1=0;c1=0;
+        a2=-1;b2=0;c2=0;
         origin_x=48;origin_y=32;scale=1;
-        wait_cache();
-        if(!dut.cache_ready) begin
-            $display("FAIL two-cubic cache did not finish");$finish_and_return(1);
-        end
+        settle_view();
         pixel_index=31*96+49;sample_current_pixel();
         if(pixel_data!=16'h07E0) begin
-            $display("FAIL two-cubic first curve=%h",pixel_data);$finish_and_return(1);
+            $display("FAIL two-quadratic first curve=%h",pixel_data);$finish_and_return(1);
         end
-        // At x=1 the 1-pixel continuity tolerance overlaps the curves;
-        // x=2 separates them and checks graph 2's own cached result.
-        pixel_index=40*96+50;sample_current_pixel();
+        // x=2 separates the curves and checks graph 2's own result.
+        pixel_index=36*96+50;sample_current_pixel();
         if(pixel_data!=16'hFD20) begin
-            $display("FAIL two-cubic second curve=%h",pixel_data);$finish_and_return(1);
+            $display("FAIL two-quadratic second curve=%h",pixel_data);$finish_and_return(1);
         end
         origin_x=40;scale=4;
-        wait_cache();
-        if(!dut.cache_ready) begin
-            $display("FAIL two-cubic cache after pan/zoom");$finish_and_return(1);
-        end
+        settle_view();
         pixel_index=28*96+44;sample_current_pixel();
         if(pixel_data!=16'h07E0) begin
-            $display("FAIL panned cubic first curve=%h",pixel_data);$finish_and_return(1);
+            $display("FAIL panned quadratic first curve=%h",pixel_data);$finish_and_return(1);
         end
         pixel_index=36*96+44;sample_current_pixel();
         if(pixel_data!=16'hFD20) begin
-            $display("FAIL panned cubic second curve=%h",pixel_data);$finish_and_return(1);
+            $display("FAIL panned quadratic second curve=%h",pixel_data);$finish_and_return(1);
         end
+
+        // Direct arithmetic must work immediately at every pixel, including
+        // signed coefficient endpoints, four scales and viewport clipping.
+        // This oracle uses integer division with explicit floor rounding,
+        // independent of the renderer's bounded multipliers and shifts.
+        for(coefficient_case=0;coefficient_case<8;coefficient_case=coefficient_case+1) begin
+            a1=test_coefficient(coefficient_case);
+            b1=test_coefficient(coefficient_case+3);
+            c1=test_coefficient(coefficient_case+5);
+            a2=test_coefficient(coefficient_case+4);
+            b2=test_coefficient(coefficient_case+1);
+            c2=test_coefficient(coefficient_case+6);
+            graph1_type=1;graph2_type=coefficient_case[0];
+            origin_x=coefficient_case[0]?8:87;
+            origin_y=coefficient_case[1]?48:16;
+            for(zoom_level=1;zoom_level<=8;zoom_level=zoom_level*2) begin
+                scale=zoom_level;
+                for(row=0;row<64;row=row+1) begin
+                    for(column=0;column<96;column=column+1) begin
+                        pixel_index=row*96+column;#1;
+                        if(dut.graph1_pixel!==reference_curve_pixel(a1,b1,c1,graph1_type,
+                            column,row,zoom_level,origin_x,origin_y) ||
+                           dut.graph2_pixel!==reference_curve_pixel(a2,b2,c2,graph2_type,
+                            column,row,zoom_level,origin_x,origin_y)) begin
+                            $display("FAIL direct graph arithmetic case=%0d scale=%0d pixel=(%0d,%0d)",
+                                     coefficient_case,zoom_level,column,row);
+                            $finish_and_return(1);
+                        end
+                        checked_pixels=checked_pixels+1;
+                    end
+                end
+            end
+        end
+        if(checked_pixels!=196608) $fatal(1,"direct graph pixel coverage incomplete");
 
         // Exhaust every signed switch value, including -128, and compare
         // the complete numeric field with independently formatted digits.
@@ -267,7 +302,7 @@ module graph_renderer_tb;
             end
         end
 
-        $display("PASS graph renderer curves, markers, all signed input labels and full Q4 decimal range");
+        $display("PASS graph renderer: 196608 direct pixel pairs, curves, markers, signed labels and full Q4 decimal range");
         $finish;
     end
 endmodule

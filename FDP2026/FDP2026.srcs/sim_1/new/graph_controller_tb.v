@@ -4,16 +4,14 @@ module graph_controller_tb;
     reg clk = 0;
     reg reset = 0;
     reg btnC = 0, btnU = 0, btnD = 0, btnL = 0, btnR = 0;
-    reg sw0 = 0, sw1 = 0, sw12 = 0, sw13 = 0, sw14 = 0;
+    reg sw0 = 0, sw12 = 0, sw13 = 0, sw14 = 0;
     reg signed [7:0] input_value = 0;
     reg mouse_zoom_in=0,mouse_zoom_out=0,mouse_recenter=0,mouse_reset_view=0;
     reg [6:0] mouse_screen_x=48;
     reg [5:0] mouse_screen_y=32;
     wire [1:0] graph_count;
     wire graph1_type, graph2_type;
-    wire cubic1,cubic2;
     wire signed [7:0] a1,b1,c1,a2,b2,c2;
-    wire signed [7:0] d1,d2;
     wire [2:0] state;
     wire current_graph, ready, draw;
     wire [3:0] scale;
@@ -29,13 +27,12 @@ module graph_controller_tb;
         .clk(clk), .reset(reset),
         .btnC_pressed(btnC), .btnU_pressed(btnU), .btnD_pressed(btnD),
         .btnL_pressed(btnL), .btnR_pressed(btnR),
-        .sw0(sw0), .sw1_cubic(sw1), .sw12_cursor(sw12), .sw13_zoom(sw13), .sw14(sw14),
+        .sw0(sw0), .sw12_cursor(sw12), .sw13_zoom(sw13), .sw14(sw14),
         .input_value(input_value),
         .mouse_zoom_in(mouse_zoom_in), .mouse_zoom_out(mouse_zoom_out),
         .mouse_recenter(mouse_recenter), .mouse_reset_view(mouse_reset_view),
         .mouse_screen_x(mouse_screen_x), .mouse_screen_y(mouse_screen_y),
         .graph_count(graph_count), .graph1_type(graph1_type), .graph2_type(graph2_type),
-        .cubic1(cubic1),.cubic2(cubic2),.d1(d1),.d2(d2),
         .a1(a1),.b1(b1),.c1(c1),.a2(a2),.b2(b2),.c2(c2),
         .state(state), .current_graph(current_graph), .ready(ready), .draw(draw),
         .scale_px_per_unit(scale), .origin_x(origin_x), .origin_y(origin_y),
@@ -202,34 +199,28 @@ module graph_controller_tb;
             $finish_and_return(1);
         end
 
-        // SW1 selects a cubic, with a fourth coefficient, without entering
-        // the original Oskar file's linear/quadratic states for this graph.
+        // A quadratic uses Oskar's original A/B/C sequence, then READY.
         reset=1; @(posedge clk); #1; reset=0; sw14=0;
-        sw0=0;sw1=0;pulse_c(); // one graph
-        sw1=1;pulse_c(); // cubic
-        if (!cubic1 || state!=3'd2) begin
-            $display("FAIL cubic selection cubic=%b state=%0d",cubic1,state);
+        sw0=0;pulse_c(); // one graph
+        sw0=1;pulse_c(); // quadratic
+        if (!graph1_type || state!=3'd2) begin
+            $display("FAIL quadratic selection type=%b state=%0d",graph1_type,state);
             $finish_and_return(1);
         end
         input_value=1;pulse_c(); // a
         input_value=2;pulse_c(); // b
-        input_value=3;pulse_c(); // c
-        if(state!=3'd5) begin
-            $display("FAIL cubic D stage=%0d",state);$finish_and_return(1);
-        end
-        input_value=4;pulse_c(); // d
-        if(!ready||state!=3'd6||a1!=1||b1!=2||c1!=3||d1!=4) begin
-            $display("FAIL cubic coefficients a=%0d b=%0d c=%0d d=%0d state=%0d",
-                     a1,b1,c1,d1,state);$finish_and_return(1);
+        input_value=-3;pulse_c(); // c
+        if(!ready||state!=3'd6||a1!=1||b1!=2||c1!=-3) begin
+            $display("FAIL quadratic coefficients a=%0d b=%0d c=%0d state=%0d",
+                     a1,b1,c1,state);$finish_and_return(1);
         end
         sw14=1;@(posedge clk);#1;
         if(!draw||state!=3'd7) begin
-            $display("FAIL cubic draw state=%0d",state);$finish_and_return(1);
+            $display("FAIL quadratic draw state=%0d",state);$finish_and_return(1);
         end
 
-        // A cubic may also be selected only for graph 2, after Oskar has
-        // already collected the first line's coefficients.
-        reset=1;@(posedge clk);#1;reset=0;sw14=0;sw1=0;
+        // Graph 2 may be quadratic after graph 1 has been entered as a line.
+        reset=1;@(posedge clk);#1;reset=0;sw14=0;
         sw0=1;pulse_c(); // two graphs
         sw0=0;pulse_c(); // graph 1 line
         input_value=2;pulse_c(); // b1
@@ -239,22 +230,21 @@ module graph_controller_tb;
             $display("FAIL second graph selection state=%0d current=%0d",state,current_graph);
             $finish_and_return(1);
         end
-        sw1=1;pulse_c(); // graph 2 cubic
+        sw0=1;pulse_c(); // graph 2 quadratic
         input_value=-1;pulse_c(); // a2
         input_value=2;pulse_c(); // b2
         input_value=-3;pulse_c(); // c2
-        input_value=4;pulse_c(); // d2
-        if(!ready||!cubic2||cubic1||b1!=2||c1!=-3||
-           a2!=-1||b2!=2||c2!=-3||d2!=4) begin
-            $display("FAIL second cubic coefficients state=%0d a2=%0d b2=%0d c2=%0d d2=%0d",
-                     state,a2,b2,c2,d2);$finish_and_return(1);
+        if(!ready||!graph2_type||graph1_type||b1!=2||c1!=-3||
+           a2!=-1||b2!=2||c2!=-3) begin
+            $display("FAIL second quadratic coefficients state=%0d a2=%0d b2=%0d c2=%0d",
+                     state,a2,b2,c2);$finish_and_return(1);
         end
         sw14=1;@(posedge clk);#1;
         if(!draw||state!=3'd7) begin
-            $display("FAIL second cubic draw state=%0d",state);$finish_and_return(1);
+            $display("FAIL second quadratic draw state=%0d",state);$finish_and_return(1);
         end
 
-        $display("PASS graph controller, legacy intersection, cubic input and view controls");
+        $display("PASS graph controller, linear/quadratic input, intersections and view controls");
         $finish;
     end
 endmodule

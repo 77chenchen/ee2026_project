@@ -20,7 +20,7 @@ run_tb button_onepulse_tb \
     "$src/button_onepulse.v" "$sim/button_onepulse_tb.v"
 
 run_tb graph_controller_tb \
-    "$oskar_src/graph_controller.v" "$src/graph_cubic_input.v" \
+    "$oskar_src/graph_controller.v" \
     "$src/graph_quadratic_intersections.v" "$src/graph_controller_adapter.v" \
     "$sim/graph_controller_tb.v"
 
@@ -31,14 +31,14 @@ run_tb mouse_graph_adapter_tb \
     "$src/mouse_graph_adapter.v" "$sim/mouse_graph_adapter_tb.v"
 
 run_tb graph_renderer_tb \
-    "$src/graph_curve_cache.v" "$src/graph_renderer.v" \
+    "$src/graph_renderer.v" \
     "$sim/graph_renderer_tb.v"
 
 run_tb oled_display_tb \
     "$src/Oled_Display.v" "$sim/oled_display_tb.v"
 
 run_tb graph_oled_tb \
-    "$src/graph_curve_cache.v" "$src/graph_renderer.v" \
+    "$src/graph_renderer.v" \
     "$src/Oled_Display.v" "$sim/graph_oled_tb.v"
 
 run_tb calculator_signed_divider_tb \
@@ -55,9 +55,9 @@ run_tb integration_tb \
     "$src/switch_to_binary.v" \
     "$src/history_renderer.v" "$src/owerflow_renderer.v" \
     "$src/right_angle_triangle.v" "$src/triangle_renderer.v" \
-    "$oskar_src/graph_controller.v" "$src/graph_cubic_input.v" \
+    "$oskar_src/graph_controller.v" \
     "$src/graph_quadratic_intersections.v" "$src/graph_controller_adapter.v" \
-    "$src/graph_curve_cache.v" "$src/graph_renderer.v" \
+    "$src/graph_renderer.v" \
     "$src/graph_mode_integration.v" "$src/Oled_Display.v" \
     "$src/My_Top_Module.v" "$sim/integration_tb.v"
 

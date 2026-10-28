@@ -1,8 +1,7 @@
 `timescale 1ns / 1ps
 
 // Project integration layer around Oskar's unmodified graph_controller.
-// Oskar handles the original linear/quadratic input flow. Only selecting a
-// cubic transfers control to our separate FSM; neither original is edited.
+// Oskar handles the original linear/quadratic input flow without edits.
 // The adapter also owns view state and the shared intersection solver.
 module graph_controller_adapter #(
     parameter integer ENABLE_MOUSE = 0
@@ -15,7 +14,6 @@ module graph_controller_adapter #(
     input  wire btnL_pressed,
     input  wire btnR_pressed,
     input  wire sw0,
-    input  wire sw1_cubic,
     input  wire sw12_cursor,
     input  wire sw13_zoom,
     input  wire sw14,
@@ -28,8 +26,8 @@ module graph_controller_adapter #(
     input  wire [5:0] mouse_screen_y,
 
     output wire [1:0] graph_count,
-    output wire graph1_type, graph2_type, cubic1, cubic2,
-    output wire signed [7:0] a1,b1,c1,d1,a2,b2,c2,d2,
+    output wire graph1_type, graph2_type,
+    output wire signed [7:0] a1,b1,c1,a2,b2,c2,
     output wire [2:0] state,
     output wire current_graph,
     output wire ready, draw,
@@ -55,62 +53,19 @@ module graph_controller_adapter #(
 
     reg sw14_previous;
     wire sw14_rising = sw14 && !sw14_previous;
-    wire [1:0] oskar_count;
-    wire oskar_type1, oskar_type2, oskar_ready, oskar_draw;
-    wire signed [7:0] oskar_a1,oskar_b1,oskar_c1,oskar_a2,oskar_b2,oskar_c2;
-    wire [2:0] oskar_state;
     reg oskar_current_graph;
-    reg extended_active;
-    wire start_extended = !extended_active && (oskar_state==3'd1) &&
-                          btnC_pressed && sw1_cubic;
-    wire [1:0] extended_count;
-    wire extended_type1,extended_type2,extended_cubic1,extended_cubic2;
-    wire signed [7:0] extended_a1,extended_b1,extended_c1,extended_d1;
-    wire signed [7:0] extended_a2,extended_b2,extended_c2,extended_d2;
-    wire [2:0] extended_state;
-    wire extended_current,extended_ready,extended_draw;
 
     // The raw controller is intentionally instantiated without modifications.
     graph_controller oskar_controller(
-        .clk(clk), .reset(reset || extended_active), .btnC_pressed(btnC_pressed),
+        .clk(clk), .reset(reset), .btnC_pressed(btnC_pressed),
         .sw0(sw0), .sw14(sw14_rising), .input_value(input_value),
-        .graph_count(oskar_count), .graph1_type(oskar_type1),
-        .graph2_type(oskar_type2), .a1(oskar_a1), .b1(oskar_b1), .c1(oskar_c1),
-        .a2(oskar_a2), .b2(oskar_b2), .c2(oskar_c2),
-        .state(oskar_state), .ready(oskar_ready), .draw(oskar_draw)
+        .graph_count(graph_count), .graph1_type(graph1_type),
+        .graph2_type(graph2_type), .a1(a1), .b1(b1), .c1(c1),
+        .a2(a2), .b2(b2), .c2(c2),
+        .state(state), .ready(ready), .draw(draw)
     );
 
-    graph_cubic_input cubic_input(
-        .clk(clk), .reset(reset), .start(start_extended),
-        .btnC_pressed(btnC_pressed), .sw0(sw0), .sw1(sw1_cubic), .sw14(sw14),
-        .start_count(oskar_count), .start_second(oskar_current_graph),
-        .start_graph1_type(oskar_type1),
-        .start_a1(oskar_a1), .start_b1(oskar_b1), .start_c1(oskar_c1),
-        .input_value(input_value), .graph_count(extended_count),
-        .graph1_type(extended_type1), .graph2_type(extended_type2),
-        .cubic1(extended_cubic1), .cubic2(extended_cubic2),
-        .a1(extended_a1), .b1(extended_b1), .c1(extended_c1), .d1(extended_d1),
-        .a2(extended_a2), .b2(extended_b2), .c2(extended_c2), .d2(extended_d2),
-        .state(extended_state), .current_graph(extended_current),
-        .ready(extended_ready), .draw(extended_draw)
-    );
-    assign graph_count=extended_active?extended_count:oskar_count;
-    assign graph1_type=extended_active?extended_type1:oskar_type1;
-    assign graph2_type=extended_active?extended_type2:oskar_type2;
-    assign cubic1=extended_active && extended_cubic1;
-    assign cubic2=extended_active && extended_cubic2;
-    assign a1=extended_active?extended_a1:oskar_a1;
-    assign b1=extended_active?extended_b1:oskar_b1;
-    assign c1=extended_active?extended_c1:oskar_c1;
-    assign d1=extended_active?extended_d1:8'sd0;
-    assign a2=extended_active?extended_a2:oskar_a2;
-    assign b2=extended_active?extended_b2:oskar_b2;
-    assign c2=extended_active?extended_c2:oskar_c2;
-    assign d2=extended_active?extended_d2:8'sd0;
-    assign state=extended_active?extended_state:oskar_state;
-    assign current_graph=extended_active?extended_current:oskar_current_graph;
-    assign ready=extended_active?extended_ready:oskar_ready;
-    assign draw=extended_active?extended_draw:oskar_draw;
+    assign current_graph=oskar_current_graph;
 
     wire signed [8:0] recenter_x = $signed({2'b00, origin_x}) + 9'sd48 -
                                     $signed({3'b000, mouse_screen_x});
@@ -121,7 +76,6 @@ module graph_controller_adapter #(
         sw14_previous <= sw14;
         if (reset) begin
             oskar_current_graph <= 0;
-            extended_active <= 0;
             scale_px_per_unit <= 4;
             origin_x <= DEFAULT_ORIGIN_X;
             origin_y <= DEFAULT_ORIGIN_Y;
@@ -131,8 +85,7 @@ module graph_controller_adapter #(
         end else begin
             // Oskar keeps this state internally; reproduce it only as an
             // output for setup labels in the renderer.
-            if (start_extended) extended_active <= 1'b1;
-            if ((oskar_state == NEXT_GRAPH) && (oskar_count == 2) && !oskar_current_graph)
+            if ((state == NEXT_GRAPH) && (graph_count == 2) && !oskar_current_graph)
                 oskar_current_graph <= 1'b1;
 
             if (state == VIEW_GRAPH) begin
@@ -171,7 +124,7 @@ module graph_controller_adapter #(
         end
     end
 
-    wire solve_intersection = (graph_count==2) && !cubic1 && !cubic2;
+    wire solve_intersection = (graph_count==2);
     wire [2:0] quadratic_status;
     wire quadratic_valid1,quadratic_valid2;
     wire signed [15:0] quadratic_x1,quadratic_y1,quadratic_x2,quadratic_y2;
