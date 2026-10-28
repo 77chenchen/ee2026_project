@@ -46,7 +46,7 @@ module My_Top_Module (input CLOCK,
     localparam GREEN  = 16'h07E0;
     localparam ORANGE = 16'hFF60;
     
-    wire [15:0] oled_data;
+    reg [15:0] oled_data;
         
     // oleds for different modules 
     // Driven only by the Graph-module integration below.
@@ -338,7 +338,7 @@ module My_Top_Module (input CLOCK,
         menu_render_y <= y;
     end
 
-    always @(*) begin
+    always @(posedge clk6p25m) begin
     
         oled_data_menu = BLACK;
     
@@ -368,10 +368,14 @@ module My_Top_Module (input CLOCK,
     
     assign led = sw;
     
-    assign oled_data = (choice == state_calculator) ? oled_data_calculator :
-                       (choice == state_graph)      ? oled_data_graph      :
-                       (choice == state_triangle)   ? oled_data_triangle   :
-                                                      oled_data_menu;
+    // Register the final mode mux once per OLED clock, so a choice change
+    // cannot cross into the falling-edge pixel load with raw 100 MHz skew.
+    always @(posedge clk6p25m) begin
+        oled_data <= (choice == state_calculator) ? oled_data_calculator :
+                     (choice == state_graph)      ? oled_data_graph      :
+                     (choice == state_triangle)   ? oled_data_triangle   :
+                                                    oled_data_menu;
+    end
     
 endmodule
 
