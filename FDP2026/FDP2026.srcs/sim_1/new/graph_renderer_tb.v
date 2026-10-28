@@ -31,6 +31,7 @@ module graph_renderer_tb;
     reg expected_text;
 
     graph_renderer dut(
+        .pixel_clk(pixel_clk),
         .pixel_index(pixel_index),.graph_count(graph_count),
         .graph1_type(graph1_type),.graph2_type(graph2_type),
         .a1(a1),.b1(b1),.c1(c1),
@@ -244,7 +245,7 @@ module graph_renderer_tb;
                 scale=zoom_level;
                 for(row=0;row<64;row=row+1) begin
                     for(column=0;column<96;column=column+1) begin
-                        pixel_index=row*96+column;#1;
+                        pixel_index=row*96+column;sample_current_pixel();
                         if(dut.graph1_pixel!==reference_curve_pixel(a1,b1,c1,graph1_type,
                             column,row,zoom_level,origin_x,origin_y) ||
                            dut.graph2_pixel!==reference_curve_pixel(a2,b2,c2,graph2_type,
@@ -272,7 +273,7 @@ module graph_renderer_tb;
                         (magnitude>=100 && reference_digit_pixel(magnitude/100,text_x-40,text_y-20)) ||
                         (magnitude>=10 && reference_digit_pixel((magnitude/10)%10,text_x-46,text_y-20)) ||
                         reference_digit_pixel(magnitude%10,text_x-52,text_y-20);
-                    pixel_index=text_y*96+text_x;#1;
+                    pixel_index=text_y*96+text_x;sample_current_pixel();
                     if(pixel_data !== (expected_text?16'hFFFF:16'h0000)) begin
                         $display("FAIL input text value=%0d x=%0d y=%0d got=%h expected=%b",
                                  input_value,text_x,text_y,pixel_data,expected_text);
@@ -285,7 +286,7 @@ module graph_renderer_tb;
         // The same bounded formatter serves signed Q4 cursor coordinates.
         // Cover both signs, the -32768 magnitude, saturation and fractions.
         for(i=-32768;i<=32767;i=i+1) begin
-            cursor_x=i;cursor_y=-i-1;#1;
+            cursor_x=i;cursor_y=-i-1;sample_current_pixel();
             x_magnitude=(i<0)?-i:i;
             y_magnitude=(-i-1<0)?i+1:-i-1;
             x_integer=x_magnitude/16;y_integer=y_magnitude/16;

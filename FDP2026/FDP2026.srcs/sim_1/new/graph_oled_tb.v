@@ -23,6 +23,7 @@ module graph_oled_tb;
     reg [15:0] serial_word=0;
 
     graph_renderer #(.INCLUDE_TEXT(0)) graph(
+        .pixel_clk(pixel_clk),
         .pixel_index(pixel_index),
         .graph_count(2'd2),.graph1_type(quadratic1),.graph2_type(quadratic2),
         .a1(a1),.b1(b1),.c1(c1),

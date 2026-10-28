@@ -14,7 +14,7 @@ sequential arithmetic, two-root intersections and both clock constraints.
 | --- | --- |
 | OLED-domain display state | Graph, calculator/history and triangle display snapshots use the OLED rising edge. The OLED SPI core consumes pixels on the falling edge. |
 | Bounded arithmetic stages | Calculator division takes eight restoring steps; triangle square root takes eight restoring steps. Quadratic discriminant products, subtraction, sign/root classification, trial-square comparison, division and coordinate projection are separate stages. |
-| Direct aligned curves | Linear/quadratic curves and overlays use the same pixel address without a cache or pixel-read pipeline. Multipliers have bounded signed widths, and the viewport/coefficients remain frozen for the frame. |
+| Direct aligned curves | Linear/quadratic curves and overlays use the same OLED pixel address without a curve cache. The renderer registers only `screen_x/screen_y` between the driver's falling-edge address update and rising-edge evaluation, breaking the long 6.25 MHz address path while retaining immediate direct plotting. Coefficients and viewport remain frozen for the frame. |
 | Complete internal clock checks | The real 100 MHz input and its related divide-by-16 OLED clock are constrained. No false-path or multicycle exception is added to hide a failing data path. |
 
 The top-level changes are limited to OLED startup reset and the clock/frame
@@ -34,7 +34,8 @@ The suite exhausts all 65,536 signed 8-bit division input pairs, includes
 checking 24,576 actual serialized OLED RGB565 words across four graph frames.
 It covers linear/quadratic rendering, both intersection markers, zoom
 and pan. A separate direct-arithmetic oracle checks 196,608 pixel positions
-with signed coefficient endpoints and viewport clipping. The Tcl checker has
+with signed coefficient endpoints and viewport clipping on the registered
+render clock. The Tcl checker has
 18 mocked control-flow cases, including negative
 setup/hold/pulse slack, missing/wrong clocks, incomplete clock coverage and
 failed routing. Mock checks do **not** perform FPGA implementation.

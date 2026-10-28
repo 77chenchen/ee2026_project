@@ -6,6 +6,7 @@
 module graph_renderer #(
     parameter INCLUDE_TEXT = 1
 ) (
+    input  wire        pixel_clk,
     input  wire [12:0] pixel_index,
     input  wire [1:0]  graph_count,
     input  wire        graph1_type,
@@ -67,13 +68,24 @@ module graph_renderer #(
     assign screen_x = pixel_index % 13'd96;
     assign screen_y = pixel_index / 13'd96;
 
+    // Break the OLED-domain path at the pixel address.  The OLED driver
+    // changes pixel_index on a falling edge; this rising-edge register
+    // presents the new address throughout the next pixel period.  That
+    // leaves curve evaluation and color merging one full 6.25 MHz cycle.
+    reg [6:0] render_x;
+    reg [5:0] render_y;
+    always @(posedge pixel_clk) begin
+        render_x <= screen_x;
+        render_y <= screen_y;
+    end
+
     wire signed [4:0] graph_scale_signed =
         $signed({1'b0, scale_px_per_unit});
     // Restore the previous direct datapath, with explicitly bounded signed
     // widths rather than 32-bit integer multipliers. Reuse x^2 for both
     // curves. Scale is 1/2/4/8 pixels per unit, so quadratic scaling is a
     // signed arithmetic shift, not a divider.
-    wire signed [8:0] graph_dx=$signed({2'b0,screen_x})-$signed({2'b0,origin_x});
+    wire signed [8:0] graph_dx=$signed({2'b0,render_x})-$signed({2'b0,origin_x});
     wire signed [8:0] graph_dx_previous=graph_dx-9'sd1;
     wire signed [17:0] dx_squared=graph_dx*graph_dx;
     wire signed [17:0] dx_previous_squared=graph_dx_previous*graph_dx_previous;
@@ -272,8 +284,8 @@ module graph_renderer #(
     reg legend2_pixel;
 
     always @* begin
-        px = screen_x;
-        py = screen_y;
+        px = render_x;
+        py = render_y;
         ox = origin_x;
         oy = origin_y;
         scale = (scale_px_per_unit == 0) ? 1 : scale_px_per_unit;
