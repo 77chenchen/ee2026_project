@@ -9,11 +9,14 @@ module right_angle_triangle(input CLOCK,
                             output wire [15:0] oled_data
     );
   
-    wire [6:0] x;
-    wire [5:0] y;
-    
-    assign x = pixel_index % 96;
-    assign y = pixel_index / 96;
+    // Register the OLED address before triangle/number rendering so the
+    // fall-edge SPI sample never sees divide-decode through color logic.
+    reg [6:0] x;
+    reg [5:0] y;
+    always @(posedge OLED_CLOCK) begin
+        x <= pixel_index % 96;
+        y <= pixel_index / 96;
+    end
     
     localparam BLACK  = 16'h0000;
     localparam ORANGE = 16'hFF60;

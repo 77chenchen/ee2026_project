@@ -11,11 +11,12 @@ module calculator(input CLOCK,
                   output reg [7:0] seg
                   );
                       
-    wire [6:0] x;
-    wire [5:0] y;
-    
-    assign x = pixel_index % 96;
-    assign y = pixel_index / 96;
+    reg [6:0] x;
+    reg [5:0] y;
+    always @(posedge OLED_CLOCK) begin
+        x <= pixel_index % 96;
+        y <= pixel_index / 96;
+    end
     
     localparam BLACK  = 16'h0000;
     localparam ORANGE = 16'hFF60;
@@ -225,6 +226,7 @@ module calculator(input CLOCK,
     
     //history OLED renderer
     history_renderer history_screen(.pixel_index(pixel_index),
+                                    .x(x),.y(y),
                                     .count(frame_history_count),
                                     .history_select(frame_history_select),
                                     
