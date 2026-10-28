@@ -331,28 +331,35 @@ module My_Top_Module (input CLOCK,
     end
     
         
+    reg [6:0] menu_render_x;
+    reg [5:0] menu_render_y;
+    always @(posedge clk6p25m) begin
+        menu_render_x <= x;
+        menu_render_y <= y;
+    end
+
     always @(*) begin
     
         oled_data_menu = BLACK;
     
         // MENU title
-        if (draw_word(0, x, y, 36, 5))
+        if (draw_word(0, menu_render_x, menu_render_y, 36, 5))
             oled_data_menu = ORANGE;
     
         // CALCULATOR
-        if (draw_word(1, x, y, 20, 20))
+        if (draw_word(1, menu_render_x, menu_render_y, 20, 20))
             oled_data_menu = (arrow == 0) ? GREEN : WHITE;
     
         // GRAPH
-        if (draw_word(2, x, y, 20, 35))
+        if (draw_word(2, menu_render_x, menu_render_y, 20, 35))
             oled_data_menu = (arrow == 1) ? GREEN : WHITE;
     
         // TRIANGLE
-        if (draw_word(3, x, y, 20, 50))
+        if (draw_word(3, menu_render_x, menu_render_y, 20, 50))
             oled_data_menu = (arrow == 2) ? GREEN : WHITE;
     
         // Selection arrow
-        if (draw_arrow(x, y, 10,
+        if (draw_arrow(menu_render_x, menu_render_y, 10,
             (arrow == 0) ? 20 :
             (arrow == 1) ? 35 : 50))
             oled_data_menu = ORANGE;
