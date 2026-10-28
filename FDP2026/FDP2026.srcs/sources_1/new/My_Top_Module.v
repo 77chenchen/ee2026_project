@@ -35,11 +35,12 @@ module My_Top_Module (input CLOCK,
                        .CLOCK(CLOCK),
                        .SLOW_CLOCK(clk6p25m) 
                         );
-    wire [6:0] x;
-    wire [5:0] y;
-    
-    assign x = pixel_index % 96;
-    assign y = pixel_index / 96;
+    reg [6:0] x;
+    reg [5:0] y;
+    always @(posedge clk6p25m) begin
+        x <= pixel_index % 96;
+        y <= pixel_index / 96;
+    end
     
     localparam BLACK  = 16'h0000;
     localparam WHITE  = 16'hFFFF;
