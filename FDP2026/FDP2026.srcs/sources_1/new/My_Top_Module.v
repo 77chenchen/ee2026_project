@@ -22,6 +22,14 @@ module My_Top_Module (input CLOCK,
     wire frame_begin, sending_pixels, sample_pixel;
     wire oled_cs, oled_sdin, oled_sclk, oled_d_cn;
     wire oled_resn, oled_vccen, oled_pmoden;
+    // Hold the OLED core in reset across two 6.25 MHz edges so its own
+    // power-up delay is loaded before the Pmod supply is enabled.
+    reg [1:0] oled_startup_count = 2'd0;
+    wire oled_reset = (oled_startup_count != 2'd2);
+    always @(posedge clk6p25m) begin
+        if (oled_startup_count != 2'd2)
+            oled_startup_count <= oled_startup_count + 1'b1;
+    end
     
     clock_hz clk_6_25 (.HZ(6_250_000),
                        .CLOCK(CLOCK),
@@ -57,7 +65,7 @@ module My_Top_Module (input CLOCK,
     
     Oled_Display oled (
         .clk(clk6p25m),
-        .reset(1'b0),
+        .reset(oled_reset),
 
         .frame_begin(frame_begin),
         .sending_pixels(sending_pixels),
@@ -239,6 +247,8 @@ module My_Top_Module (input CLOCK,
     
     // Calculator module:
     calculator calculator_module(.CLOCK(CLOCK),
+                                 .OLED_CLOCK(clk6p25m),
+                                 .frame_begin(frame_begin),
                                  .btnU(db_btnU && choice == state_calculator),
                                  .btnD(db_btnD && choice == state_calculator),
                                  .btnL(db_btnL && choice == state_calculator),
@@ -257,6 +267,7 @@ module My_Top_Module (input CLOCK,
     // Graph-module:
     graph_mode_integration graphnator(
         .CLOCK(CLOCK),
+        .OLED_CLOCK(clk6p25m),
         .active(choice == state_graph),
         .btnU(db_btnU && choice == state_graph),
         .btnD(db_btnD && choice == state_graph),
@@ -272,6 +283,8 @@ module My_Top_Module (input CLOCK,
     // Triangle module:
     
    right_angle_triangle triangle(.CLOCK(CLOCK),
+                                 .OLED_CLOCK(clk6p25m),
+                                 .frame_begin(frame_begin),
                                  .btnU(db_btnU && choice == state_triangle),
                                  .btnD(db_btnD && choice == state_triangle),
                                  .btnC(db_btnC && choice == state_triangle),

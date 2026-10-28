@@ -1,10 +1,11 @@
 `timescale 1ns / 1ps
 
-// Combinational 96x64 RGB565 graph renderer.
+// 96x64 RGB565 renderer: 100 MHz curve calculation, OLED-clock column read,
+// then combinational overlays before the OLED falling-edge pixel sample.
 module graph_renderer #(
     parameter INCLUDE_TEXT = 1
 ) (
-    input  wire clk,
+    input  wire clk, pixel_clk,
     input  wire [12:0] pixel_index,
     input  wire [1:0]  graph_count,
     input  wire        graph1_type,
@@ -73,8 +74,13 @@ module graph_renderer #(
         $signed({1'b0, scale_px_per_unit});
     wire cache_ready;
     wire [13:0] bounds1,bounds2;
+    reg [5:0] curve_screen_y=0;
+    // The RAM read and row belong to the same requested pixel. The OLED
+    // changes pixel_index on falling edges and samples on a later falling
+    // edge, leaving this rising-edge stage half a cycle to settle.
+    always @(posedge pixel_clk) curve_screen_y<=screen_y;
     graph_curve_cache curve_cache(
-        .clk(clk),.enable(draw_enable),.screen_x(screen_x),
+        .clk(clk),.pixel_clk(pixel_clk),.enable(draw_enable),.screen_x(screen_x),
         .origin_x(origin_x),.origin_y(origin_y),.scale(scale_px_per_unit),
         .graph1_type(graph1_type),.graph2_type(graph2_type),
         .cubic1(cubic1),.cubic2(cubic2),
@@ -140,7 +146,7 @@ module graph_renderer #(
     endfunction
 
     function [7:0] digit_character;
-        input integer digit;
+        input [3:0] digit;
         begin
             case (digit)
                 0:digit_character="0"; 1:digit_character="1"; 2:digit_character="2";
@@ -150,6 +156,51 @@ module graph_renderer #(
             endcase
         end
     endfunction
+
+    // Keep decimal formatting eight bits wide. Signed integer / and % here
+    // put a long chain of 32-bit arithmetic in the OLED pixel path.
+    function [11:0] decimal_digits;
+        input [7:0] magnitude;
+        reg [7:0] remainder;
+        reg [3:0] hundreds, tens;
+        begin
+            if (magnitude >= 8'd200) begin
+                hundreds=2; remainder=magnitude-8'd200;
+            end else if (magnitude >= 8'd100) begin
+                hundreds=1; remainder=magnitude-8'd100;
+            end else begin
+                hundreds=0; remainder=magnitude;
+            end
+            if      (remainder >= 8'd90) begin tens=9; remainder=remainder-8'd90; end
+            else if (remainder >= 8'd80) begin tens=8; remainder=remainder-8'd80; end
+            else if (remainder >= 8'd70) begin tens=7; remainder=remainder-8'd70; end
+            else if (remainder >= 8'd60) begin tens=6; remainder=remainder-8'd60; end
+            else if (remainder >= 8'd50) begin tens=5; remainder=remainder-8'd50; end
+            else if (remainder >= 8'd40) begin tens=4; remainder=remainder-8'd40; end
+            else if (remainder >= 8'd30) begin tens=3; remainder=remainder-8'd30; end
+            else if (remainder >= 8'd20) begin tens=2; remainder=remainder-8'd20; end
+            else if (remainder >= 8'd10) begin tens=1; remainder=remainder-8'd10; end
+            else tens=0;
+            decimal_digits={hundreds,tens,remainder[3:0]};
+        end
+    endfunction
+
+    // Unsigned magnitudes retain abs(-128) and abs(-32768) without overflow.
+    wire [7:0] input_magnitude = current_input[7] ?
+        (~current_input + 8'd1) : current_input;
+    wire [11:0] input_digits = decimal_digits(input_magnitude);
+    wire [15:0] cursor_abs_x_q4 = cursor_x_q4[15] ?
+        (~cursor_x_q4 + 16'd1) : cursor_x_q4;
+    wire [15:0] cursor_abs_y_q4 = cursor_y_q4[15] ?
+        (~cursor_y_q4 + 16'd1) : cursor_y_q4;
+    wire [7:0] cursor_x_integer = (cursor_abs_x_q4[15:4] > 12'd99) ?
+        8'd99 : cursor_abs_x_q4[11:4];
+    wire [7:0] cursor_y_integer = (cursor_abs_y_q4[15:4] > 12'd99) ?
+        8'd99 : cursor_abs_y_q4[11:4];
+    wire [11:0] cursor_x_digits = decimal_digits(cursor_x_integer);
+    wire [11:0] cursor_y_digits = decimal_digits(cursor_y_integer);
+    wire [3:0] cursor_x_fraction = (cursor_abs_x_q4[3:0] >= 4'd8) ? 4'd5 : 4'd0;
+    wire [3:0] cursor_y_fraction = (cursor_abs_y_q4[3:0] >= 4'd8) ? 4'd5 : 4'd0;
 
     function font_pixel;
         input [7:0] ch;
@@ -188,13 +239,6 @@ module graph_renderer #(
     integer marker2_y;
     integer cursor_x;
     integer cursor_y;
-    integer cursor_abs_x_q4;
-    integer cursor_abs_y_q4;
-    integer cursor_x_integer;
-    integer cursor_y_integer;
-    integer cursor_x_fraction;
-    integer cursor_y_fraction;
-    integer input_abs;
     reg grid_pixel;
     reg axis_pixel;
     reg graph1_pixel;
@@ -232,10 +276,12 @@ module graph_renderer #(
         // without turning them into the wide bands produced by slope-sized
         // vertical tolerances.
         graph1_pixel = draw_enable && cache_ready && bounds1[13:7]!=7'd127 &&
-                       ((py+1) >= bounds1[13:7]) && (py <= (bounds1[6:0]+1));
+                       (({1'b0,curve_screen_y}+1) >= bounds1[13:7]) &&
+                       (curve_screen_y <= (bounds1[6:0]+1));
         graph2_pixel = draw_enable && cache_ready && (graph_count == 2) &&
                        bounds2[13:7]!=7'd127 &&
-                       ((py+1) >= bounds2[13:7]) && (py <= (bounds2[6:0]+1));
+                       (({1'b0,curve_screen_y}+1) >= bounds2[13:7]) &&
+                       (curve_screen_y <= (bounds2[6:0]+1));
 
         marker_x = ox + (intersection_x_scaled >>> 4);
         marker_y = oy - (intersection_y_scaled >>> 4);
@@ -259,34 +305,23 @@ module graph_renderer #(
                        (((px == cursor_x) && (py-cursor_y <= 4) && (py-cursor_y >= -4)) ||
                         ((py == cursor_y) && (px-cursor_x <= 4) && (px-cursor_x >= -4)));
 
-        cursor_abs_x_q4 = (cursor_x_q4 < 0) ? -cursor_x_q4 : cursor_x_q4;
-        cursor_abs_y_q4 = (cursor_y_q4 < 0) ? -cursor_y_q4 : cursor_y_q4;
-        // Q4 integer/fraction extraction is wiring, not division.  Saturating
-        // the two-character field avoids synthesizing a modulo-100 divider.
-        cursor_x_integer = cursor_abs_x_q4[15:4];
-        cursor_y_integer = cursor_abs_y_q4[15:4];
-        if (cursor_x_integer > 99) cursor_x_integer = 99;
-        if (cursor_y_integer > 99) cursor_y_integer = 99;
-        cursor_x_fraction = (cursor_abs_x_q4[3:0] >= 8) ? 5 : 0;
-        cursor_y_fraction = (cursor_abs_y_q4[3:0] >= 8) ? 5 : 0;
         coordinate_pixel = 1'b0;
         if (INCLUDE_TEXT && draw_enable && cursor_enable) begin
             coordinate_pixel =
                 font_pixel("X",px,py,52,38) ||
                 ((cursor_x_q4 < 0) && font_pixel("-",px,py,58,38)) ||
-                font_pixel(digit_character(cursor_x_integer/10),px,py,64,38) ||
-                font_pixel(digit_character(cursor_x_integer%10),px,py,70,38) ||
+                font_pixel(digit_character(cursor_x_digits[7:4]),px,py,64,38) ||
+                font_pixel(digit_character(cursor_x_digits[3:0]),px,py,70,38) ||
                 font_pixel(".",px,py,76,38) ||
                 font_pixel(digit_character(cursor_x_fraction),px,py,82,38) ||
                 font_pixel("Y",px,py,52,46) ||
                 ((cursor_y_q4 < 0) && font_pixel("-",px,py,58,46)) ||
-                font_pixel(digit_character(cursor_y_integer/10),px,py,64,46) ||
-                font_pixel(digit_character(cursor_y_integer%10),px,py,70,46) ||
+                font_pixel(digit_character(cursor_y_digits[7:4]),px,py,64,46) ||
+                font_pixel(digit_character(cursor_y_digits[3:0]),px,py,70,46) ||
                 font_pixel(".",px,py,76,46) ||
                 font_pixel(digit_character(cursor_y_fraction),px,py,82,46);
         end
 
-        input_abs = (current_input < 0) ? -current_input : current_input;
         input_pixel = 1'b0;
         if (INCLUDE_TEXT && !draw_enable) begin
             if (controller_state == SELECT_COUNT)
@@ -304,9 +339,9 @@ module graph_renderer #(
             end else if ((controller_state==ENTER_A)||(controller_state==ENTER_B)||
                          (controller_state==ENTER_C)||(controller_state==ENTER_D)) begin
                 input_pixel=((current_input<0)&&font_pixel("-",px,py,34,20))||
-                            ((input_abs>=100)&&font_pixel(digit_character((input_abs/100)%10),px,py,40,20))||
-                            ((input_abs>=10)&&font_pixel(digit_character((input_abs/10)%10),px,py,46,20))||
-                            font_pixel(digit_character(input_abs%10),px,py,52,20);
+                            ((input_magnitude>=8'd100)&&font_pixel(digit_character(input_digits[11:8]),px,py,40,20))||
+                            ((input_magnitude>=8'd10)&&font_pixel(digit_character(input_digits[7:4]),px,py,46,20))||
+                            font_pixel(digit_character(input_digits[3:0]),px,py,52,20);
             end
         end
 

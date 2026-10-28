@@ -2,21 +2,25 @@
 
 // Rebuilds the two 96-column plots when the view or coefficients change.
 // Horner evaluation reuses one signed multiplier over several 100 MHz clocks.
-// The small column tables are read by the OLED renderer without a multiplier.
+// Register the coordinate, result and screen projection separately so the
+// multiplier and clipping logic do not form one long RAM-write timing path.
+// Read the small column tables on the OLED rising edge. Only this short
+// RAM/mux path crosses from 100 MHz; pixel comparisons and colour selection
+// then have half an OLED period before the SPI core's falling-edge sample.
 module graph_curve_cache(
-    input wire clk, enable,
+    input wire clk, pixel_clk, enable,
     input wire [6:0] screen_x,origin_x,
     input wire [5:0] origin_y,
     input wire [3:0] scale,
     input wire graph1_type,graph2_type,cubic1,cubic2,
     input wire signed [7:0] a1,b1,c1,d1,a2,b2,c2,d2,
     output reg ready=0,
-    output wire [13:0] bounds1,bounds2
+    output reg [13:0] bounds1={7'd127,7'd127},
+    output reg [13:0] bounds2={7'd127,7'd127}
 );
     reg [13:0] table1[0:95];
     reg [13:0] table2[0:95];
-    assign bounds1=table1[screen_x];
-    assign bounds2=table2[screen_x];
+    reg build_ready=0;
 
     reg initialized=0;
     reg [3:0] old_scale;
@@ -30,6 +34,20 @@ module graph_curve_cache(
         old_cubic1!=cubic1 || old_cubic2!=cubic2 ||
         old_a1!=a1 || old_b1!=b1 || old_c1!=c1 || old_d1!=d1 ||
         old_a2!=a2 || old_b2!=b2 || old_c2!=c2 || old_d2!=d2;
+
+    // The clocks are related and constrained in the XDC, not asynchronous.
+    // Mask an unfinished/restarted table, and register validity together with
+    // its bounds so a partially rebuilt column is never rendered as valid.
+    always @(posedge pixel_clk) begin
+        ready<=build_ready && enable && !changed && screen_x<96;
+        if (build_ready && enable && !changed && screen_x<96) begin
+            bounds1<=table1[screen_x];
+            bounds2<=table2[screen_x];
+        end else begin
+            bounds1<={7'd127,7'd127};
+            bounds2<={7'd127,7'd127};
+        end
+    end
     wire [1:0] scale_shift=(scale==8)?2'd3:
                            (scale==4)?2'd2:
                            (scale==2)?2'd1:2'd0;
@@ -39,8 +57,9 @@ module graph_curve_cache(
     wire [3:0] triple_shift={scale_shift,1'b0}+{2'b0,scale_shift};
     reg [6:0] column=0;
     reg graph_number=0,previous=1;
-    reg [2:0] phase=0;
-    localparam IDLE=0,PREP=1,MUL1=2,MUL2=3,MUL3=4,STORE=5;
+    reg [3:0] phase=0;
+    localparam IDLE=0,PREP=1,MUL1=2,ADD_B=3,MUL2=4,ADD_C=5,
+               MUL3=6,EVAL=7,PROJECT=8,STORE=9;
     wire signed [8:0] dx=$signed({2'b0,column})-
                           $signed({2'b0,origin_x})-(previous?9'sd1:9'sd0);
     wire signed [7:0] ca=graph_number?a2:a1;
@@ -49,8 +68,10 @@ module graph_curve_cache(
     wire signed [7:0] cd=graph_number?d2:d1;
     wire is_cubic=graph_number?cubic2:cubic1;
     wire is_quadratic=graph_number?graph2_type:graph1_type;
+    reg signed [8:0] dx_sample;
     reg signed [27:0] work;
-    wire signed [36:0] product=work*dx;
+    wire signed [36:0] product=work*dx_sample;
+    reg signed [36:0] product_reg;
     // Horner evaluation stays in pixel coordinates: dx is pixels from the
     // graph origin, while scale=2^scale_shift pixels per graph unit.
     // For cubic, work advances A*dx+B*s, then *dx+C*s^2, then *dx+D*s^3;
@@ -60,10 +81,11 @@ module graph_curve_cache(
     wire signed [36:0] term_d=$signed(cd) <<< triple_shift;
     reg signed [37:0] previous_y;
     wire signed [37:0] final_value =
-        is_cubic ? ((product+term_d) >>> double_shift) :
-        is_quadratic ? ((product+term_c) >>> scale_shift) :
-                       (product+($signed(cc) <<< scale_shift));
-    wire signed [37:0] screen_y_value=$signed({1'b0,origin_y})-final_value;
+        is_cubic ? ((product_reg+term_d) >>> double_shift) :
+        is_quadratic ? ((product_reg+term_c) >>> scale_shift) :
+                       (product_reg+($signed(cc) <<< scale_shift));
+    reg signed [37:0] final_value_reg;
+    reg signed [37:0] screen_y_value;
     wire signed [37:0] lower=previous_y<screen_y_value?previous_y:screen_y_value;
     wire signed [37:0] upper=previous_y>screen_y_value?previous_y:screen_y_value;
     wire [6:0] clipped_low=lower<0?7'd0:lower>63?7'd63:lower[6:0];
@@ -72,9 +94,9 @@ module graph_curve_cache(
                               {7'd127,7'd127} : {clipped_low,clipped_high};
     always @(posedge clk) begin
         if (!enable) begin
-            initialized<=0;ready<=0;phase<=IDLE;
+            initialized<=0;build_ready<=0;phase<=IDLE;
         end else if (!initialized || changed) begin
-            initialized<=1;ready<=0;
+            initialized<=1;build_ready<=0;
             old_scale<=scale;old_ox<=origin_x;old_oy<=origin_y;
             old_type1<=graph1_type;old_type2<=graph2_type;
             old_cubic1<=cubic1;old_cubic2<=cubic2;
@@ -84,24 +106,40 @@ module graph_curve_cache(
         end else case(phase)
             PREP: begin
                 // Linear uses b*x+c. Quadratic/cubic begin with a*x.
+                dx_sample<=dx;
                 work<=(!is_cubic && !is_quadratic) ? $signed(cb) : $signed(ca);
                 phase<=MUL1;
             end
             MUL1: begin
-                if (!is_cubic && !is_quadratic) phase<=STORE;
-                else begin
-                    work<=product+term_b;
-                    phase<=MUL2;
-                end
+                product_reg<=product;
+                if (!is_cubic && !is_quadratic) phase<=EVAL;
+                else phase<=ADD_B;
+            end
+            ADD_B: begin
+                work<=product_reg+term_b;
+                phase<=MUL2;
             end
             MUL2: begin
-                if (is_quadratic) phase<=STORE;
-                else begin
-                    work<=product+term_c;
-                    phase<=MUL3;
-                end
+                product_reg<=product;
+                if (is_quadratic) phase<=EVAL;
+                else phase<=ADD_C;
             end
-            MUL3: phase<=STORE;
+            ADD_C: begin
+                work<=product_reg+term_c;
+                phase<=MUL3;
+            end
+            MUL3: begin
+                product_reg<=product;
+                phase<=EVAL;
+            end
+            EVAL: begin
+                final_value_reg<=final_value;
+                phase<=PROJECT;
+            end
+            PROJECT: begin
+                screen_y_value<=$signed({1'b0,origin_y})-final_value_reg;
+                phase<=STORE;
+            end
             STORE: begin
                 if (previous) begin
                     // Each column stores the range from x-1 to x, rather
@@ -116,7 +154,7 @@ module graph_curve_cache(
                     if (!graph_number) begin
                         graph_number<=1;phase<=PREP;
                     end else if (column==95) begin
-                        ready<=1;phase<=IDLE;
+                        build_ready<=1;phase<=IDLE;
                     end else begin
                         column<=column+1'b1;graph_number<=0;phase<=PREP;
                     end

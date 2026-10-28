@@ -22,6 +22,7 @@ set design_sources [list \
     [file join $source_dir history_renderer.v] \
     [file join $source_dir owerflow_renderer.v] \
     [file join $source_dir calculator.v] \
+    [file join $source_dir calculator_signed_divider.v] \
     [file join $source_dir switch_to_binary.v] \
     [file join $origin_dir team_sources hanna_2026_10_17 graph_controller.v] \
     [file join $source_dir graph_cubic_input.v] \
@@ -39,11 +40,14 @@ set simulation_sources [list \
     [file join $sim_dir graph_controller_tb.v] \
     [file join $sim_dir graph_extensions_tb.v] \
     [file join $sim_dir graph_renderer_tb.v] \
+    [file join $sim_dir graph_oled_tb.v] \
     [file join $sim_dir calculator_mode_tb.v] \
+    [file join $sim_dir calculator_signed_divider_tb.v] \
     [file join $sim_dir calculator_renderer_tb.v] \
     [file join $sim_dir menu_renderer_tb.v] \
     [file join $sim_dir compact_text_renderer_tb.v] \
     [file join $sim_dir oled_display_tb.v] \
+    [file join $sim_dir triangle_tb.v] \
     [file join $sim_dir integration_tb.v]]
 
 foreach required_file [concat $design_sources $simulation_sources \

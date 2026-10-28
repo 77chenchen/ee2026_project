@@ -10,6 +10,8 @@ Graph extensions live in separate adapter, solver and renderer files.
 
 - Calculator: signed 8-bit two's-complement input; addition, subtraction,
   multiplication and division; full result, invalid and overflow displays.
+  Division uses eight clocked steps after the second operand is saved, so a
+  recalled history value does not feed a combinational divider in one cycle.
 - Graph: one or two linear `y=Bx+C`, quadratic `y=Ax²+Bx+C`, or cubic
   `y=Ax³+Bx²+Cx+D` plots. A mixed pair is allowed. Graph 1 is green and
   Graph 2 orange, with axes, grid, zoom and pan.
@@ -48,6 +50,10 @@ repository, but are excluded from the resource-constrained synthesis top.
 
 ## Build and test
 
+For the `timing` branch changes, Windows rebuild procedure and exact acceptance
+criteria, see [Timing validation](docs/timing_validation.md). This branch starts
+from `main` commit `e6335b5`; it does not add mouse hardware.
+
 The active Vivado project is `FDP2026/FDP2026.xpr`, synthesis top
 `My_Top_Module`. If its saved paths do not open on another computer,
 start Vivado without a project and run:
@@ -59,6 +65,8 @@ source {C:/path/to/ee2026_project/FDP2026/recreate_project.tcl}
 This builds a portable project at `FDP2026/vivado_rebuilt/FDP2026.xpr`.
 The Basys3 XDC must be active. Connect the OLED to Pmod JB with power off;
 `JB[0:7]` map to CS, SDIN, unused, SCLK, D/C, RESN, VCCEN and PMODEN.
+The top level asserts an OLED startup reset before the driver's power-up
+delay; the display should show the menu without any button press.
 
 On a machine with Icarus Verilog, run:
 
@@ -69,6 +77,14 @@ On a machine with Icarus Verilog, run:
 The suite checks controller input, 0/1/2 intersections, signed cubic and
 quadratic pixels at multiple zoom levels, both markers, OLED reset and all
 6144 transmitted pixels, and routing through Hanna's top-level menu.
+It also covers calculator signed division, history recall, divide-by-zero,
+overflow and the top-level OLED startup reset. Graph text tests compare all
+256 signed coefficient labels pixel by pixel and check the full signed Q4
+cursor range. Integration tests check the OLED frame snapshot clock edge.
+Triangle tests cover every pair of 7-bit inputs in both modes, hypotenuses up
+to 179, invalid legs, reset during calculation and the OLED error overlay.
+The divider test exhausts all 65,536 signed eight-bit operand pairs, including
+every zero-divisor case and the `-128 / -1` overflow result.
 
 For **actual FPGA resource and timing verification**, open the checked-in
 Vivado project and run this script in Vivado batch mode (adjust the path):
@@ -78,13 +94,44 @@ vivado -mode batch -source C:/path/to/ee2026_project/FDP2026/check_vivado_resour
 ```
 
 The script resets and reruns synthesis and implementation, checks XC7A35T
-LUT/flip-flop/BRAM/DSP limits and 100 MHz routed setup slack, and writes
-reports to `FDP2026/vivado_resource_reports/`. It does not generate or
+LUT/flip-flop/BRAM/DSP limits, exact clock periods, internal clock coverage
+and routed setup/hold/pulse-width slack, and writes
+`routed_timing.txt`, `timing_coverage.txt`, `worst_setup_paths.txt` and
+`worst_hold_paths.txt` to `FDP2026/vivado_resource_reports/`. It also writes
+`clock_pair_paths.txt` for each launch/capture clock pair and
+`failing_setup_endpoints.txt` with the worst path to each failing endpoint.
+The XDC also
+constrains the derived 6.25 MHz OLED clock. The script does not generate or
 program a bitstream. Vivado is not installed on this development machine;
 simulation passing is **not** a substitute for a passing implementation
 report and on-board OLED check.
 
-The graph curve cache reuses one multiplier across columns. The intersection
-solver also reuses a sequential divider instead of instantiating a wide
+Graph, calculator and triangle display parameters are captured on the OLED clock's rising edge; the
+OLED interface samples each rendered pixel on its falling edge. This gives
+the renderers half of the 6.25 MHz period instead of a final 100 MHz
+cycle, while keeping the view fixed for the frame.
+Calculator snapshots include the result, error flags and all three history
+rows. Calculation and history storage still run at 100 MHz; UI changes appear
+at the next frame boundary.
+Triangle calculations register the input squares and use an eight-cycle
+restoring square root. The completed result and invalid flag are captured
+together for display; incomplete calculations wait for the next frame.
+Decimal text uses bounded eight-bit comparisons and subtraction instead of
+32-bit signed division/remainder in the pixel path.
+
+The graph curve cache reuses one multiplier across columns and registers the
+coordinate, evaluated height and screen projection before the column-table
+write. The intersection solver also reuses a sequential divider instead of instantiating a wide
 combinational divider. These choices reduce logic use, but only a fresh
 Vivado report can establish whether the final design fits and meets timing.
+
+Curve-table readout is registered on the OLED rising edge, together with its
+valid flag and pixel row. The 100 MHz RAM-write path therefore stops at a
+small OLED read stage, rather than continuing through curve comparisons,
+colour overlays and the SPI shift-register input. Invalid/rebuilding tables
+are masked. No clock period or false-path exception is relaxed by this fix.
+`graph_oled_tb` checks 24,576 actual serialized RGB565 pixel words across four
+complete frames, including linear/quadratic/cubic curves, both markers,
+minimum/maximum zoom and pan, using an independent arithmetic pixel oracle.
+The resource checker exports routed diagnostics even when Vivado reports
+`route_design Complete, Failed Timing!`, and still rejects negative slack.

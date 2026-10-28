@@ -7,6 +7,11 @@
 set_property -dict { PACKAGE_PIN W5   IOSTANDARD LVCMOS33 } [get_ports CLOCK]
 create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports CLOCK]
 
+# clock_hz toggles SLOW_CLOCK every eight 100 MHz edges. Constrain its
+# registered output as a related 6.25 MHz clock so OLED registers are timed.
+create_generated_clock -name oled_clk -source [get_ports CLOCK] -divide_by 16 \
+    [get_pins clk_6_25/SLOW_CLOCK_reg/Q]
+
 
 ## Switches
 set_property -dict { PACKAGE_PIN V17   IOSTANDARD LVCMOS33 } [get_ports {sw[0]}]
