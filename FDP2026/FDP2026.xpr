@@ -111,6 +111,15 @@
       <File Path="$PSRCDIR/sources_1/new/check_overflow.v">
         <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
       </File>
+      <File Path="$PSRCDIR/sources_1/new/calculator_divider.v">
+        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/frame_snapshot.v">
+        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/sqrt_15bit.v">
+        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
       <File Path="$PSRCDIR/sources_1/new/calculator.v">
         <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
       </File>
@@ -132,16 +141,10 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/new/graph_cubic_input.v">
-        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
-      </File>
       <File Path="$PSRCDIR/sources_1/new/graph_quadratic_intersections.v">
         <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
       </File>
       <File Path="$PSRCDIR/sources_1/new/graph_controller_adapter.v">
-        <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sources_1/new/graph_curve_cache.v">
         <FileInfo><Attr Name="UsedIn" Val="synthesis"/><Attr Name="UsedIn" Val="implementation"/><Attr Name="UsedIn" Val="simulation"/></FileInfo>
       </File>
       <File Path="$PSRCDIR/sources_1/new/graph_renderer.v">
@@ -199,6 +202,9 @@
         <FileInfo>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/new/timing_primitives_tb.v">
+        <FileInfo><Attr Name="UsedIn" Val="simulation"/></FileInfo>
       </File>
       <File Path="$PSRCDIR/sim_1/new/graph_renderer_tb.v">
         <FileInfo>

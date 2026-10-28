@@ -15,8 +15,10 @@ module graph_quadratic_intersections(
     output reg valid1, valid2,
     output reg signed [15:0] x1_q4,y1_q4,x2_q4,y2_q4
 );
-    localparam IDLE=0, SQRT=1, DIV_INIT=2, DIV_RUN=3,
-               EVAL_SQUARE=4, EVAL_A=5, EVAL_Y=6, RECORD=7, DONE=8;
+    localparam IDLE=0, START_MUL=1, START_CLASSIFY=2, SQRT_PREP=3,
+               SQRT_CHECK=4, SQRT_DECIDE=5, DIV_INIT=6, DIV_RUN=7,
+               EVAL_SIGN=8, EVAL_SQUARE=9, EVAL_A=10, EVAL_Y=11,
+               EVAL_PIXELS=12, RECORD=13, DONE=14;
     localparam STATUS_OK=0,STATUS_PAR=1,STATUS_SAME=2,STATUS_OUT=3,
                STATUS_ERR=4,STATUS_NONE=5;
     reg [3:0] phase;
@@ -24,30 +26,26 @@ module graph_quadratic_intersections(
     reg [27:0] discriminant_q8;
     reg [13:0] sqrt_value;
     reg [3:0] sqrt_bit;
-    wire [13:0] sqrt_trial = sqrt_value | (14'd1 << sqrt_bit);
-    wire [27:0] sqrt_trial_squared = sqrt_trial * sqrt_trial;
+    // The trial square is allowed to complete before the next bit decision.
+    // Keeping the multiplier input in a register prevents the shift, multiply
+    // and compare from becoming one long 100 MHz path.
+    reg  [13:0] sqrt_trial_reg;
+    reg  [27:0] sqrt_trial_squared;
     reg [1:0] root_total,root_index;
     reg [17:0] dividend,quotient;
     reg [18:0] remainder;
     reg [9:0] divisor;
     reg quotient_negative;
     reg [4:0] divide_bit;
-    wire [18:0] next_remainder = {remainder[17:0],dividend[divide_bit]};
-    wire divide_take = next_remainder >= {9'd0,divisor};
-    wire signed [18:0] signed_root = quotient_negative ?
-                                      -$signed({1'b0,quotient}) : $signed({1'b0,quotient});
+    reg [18:0] next_remainder;
+    reg divide_take;
+    reg signed [18:0] signed_root;
     reg signed [37:0] root_squared,quadratic_term,y_calc;
+    reg signed [37:0] pixel_x,pixel_y;
+    reg visible;
     wire [1:0] scale_shift=(scale==8)?2'd3:(scale==4)?2'd2:
                            (scale==2)?2'd1:2'd0;
     wire signed [37:0] extended_root={{19{signed_root[18]}},signed_root};
-    wire signed [37:0] pixel_x = $signed({1'b0,origin_x}) +
-                                  ((extended_root <<< scale_shift) >>> 4);
-    wire signed [37:0] pixel_y = $signed({1'b0,origin_y}) -
-                                  ((y_calc <<< scale_shift) >>> 4);
-    wire visible = (signed_root>=-19'sd32768) && (signed_root<=19'sd32767) &&
-                   (y_calc>=-38'sd32768) && (y_calc<=38'sd32767) &&
-                   (pixel_x>=0) && (pixel_x<=95) &&
-                   (pixel_y>=0) && (pixel_y<=63);
     reg signed [7:0] old_a1,old_b1,old_c1,old_a2,old_b2,old_c2;
     reg old_q1,old_q2,old_enable;
     reg [3:0] old_scale;
@@ -65,16 +63,12 @@ module graph_quadratic_intersections(
     wire signed [8:0] difference_c = $signed({c1[7],c1})-$signed({c2[7],c2});
     // Solve (A1-A2)x^2+(B1-B2)x+(C1-C2)=0. The discriminant is scaled
     // by 256 before integer square-rooting so x retains four fraction bits.
-    wire signed [19:0] discriminant =
-        ($signed(difference_b)*$signed(difference_b)) -
-        (($signed(difference_a)*$signed(difference_c)) <<< 2);
-    wire signed [9:0] denominator = (aa==0) ?
-        $signed({bb[8],bb}) : $signed({aa,1'b0});
-    wire signed [17:0] scaled_b=$signed(bb) <<< 4;
-    wire signed [17:0] scaled_c=$signed(cc) <<< 4;
-    wire signed [17:0] root_offset=$signed({4'b0,sqrt_value});
-    wire signed [17:0] root_numerator=(aa==0) ? -scaled_c :
-        -scaled_b + (root_index==0 ? -root_offset : root_offset);
+    // Multiplication feeds a registered discriminant.  This is a deliberate
+    // multi-cycle boundary at the start of a new graph solve.
+    reg  signed [8:0] diff_a_latched,diff_b_latched,diff_c_latched;
+    reg  signed [19:0] discriminant_reg;
+    reg signed [9:0] denominator;
+    reg signed [17:0] root_numerator;
 
     always @(posedge clk) begin
         if (reset) begin
@@ -94,46 +88,83 @@ module graph_quadratic_intersections(
             old_a2<=a2;old_b2<=b2;old_c2<=c2;
             old_q1<=graph1_quadratic;old_q2<=graph2_quadratic;
             old_scale<=scale;old_ox<=origin_x;old_oy<=origin_y;
-            aa<=difference_a;bb<=difference_b;cc<=difference_c;
+            diff_a_latched<=difference_a;
+            diff_b_latched<=difference_b;
+            diff_c_latched<=difference_c;
             valid1<=0;valid2<=0;status<=STATUS_OK;
             root_index<=0;
             if (!enable) phase<=IDLE;
-            else if (difference_a==0) begin
-                if (difference_b==0) begin
-                    status<=(difference_c==0)?STATUS_SAME:STATUS_PAR;
-                    phase<=DONE;
-                end else begin
-                    root_total<=1;phase<=DIV_INIT;
-                end
-            end else if (discriminant<0) begin
-                status<=STATUS_NONE;phase<=DONE;
-            end else begin
-                root_total<=(discriminant==0)?1:2;
-                discriminant_q8<={discriminant[19:0],8'b0};
-                sqrt_value<=0;sqrt_bit<=13;phase<=SQRT;
-            end
+            else phase<=START_MUL;
         end else case (phase)
-            SQRT: begin
-                if (sqrt_trial_squared<=discriminant_q8)
-                    sqrt_value<=sqrt_trial;
-                if (sqrt_bit==0) phase<=DIV_INIT;
-                else sqrt_bit<=sqrt_bit-1'b1;
+            START_MUL: begin
+                aa<=diff_a_latched;bb<=diff_b_latched;cc<=diff_c_latched;
+                discriminant_reg <=
+                    ($signed(diff_b_latched)*$signed(diff_b_latched)) -
+                    (($signed(diff_a_latched)*$signed(diff_c_latched)) <<< 2);
+                phase<=START_CLASSIFY;
+            end
+            START_CLASSIFY: begin
+                if (!enable) phase<=IDLE;
+                else if (aa==0) begin
+                    if (bb==0) begin
+                        status<=(cc==0)?STATUS_SAME:STATUS_PAR;
+                        phase<=DONE;
+                    end else begin
+                        root_total<=1;phase<=DIV_INIT;
+                    end
+                end else if (discriminant_reg<0) begin
+                    status<=STATUS_NONE;phase<=DONE;
+                end else begin
+                    root_total<=(discriminant_reg==0)?1:2;
+                    discriminant_q8<={discriminant_reg[19:0],8'b0};
+                    sqrt_value<=0;sqrt_bit<=13;phase<=SQRT_PREP;
+                end
+            end
+            SQRT_PREP: begin
+                sqrt_trial_reg <= sqrt_value | (14'd1 << sqrt_bit);
+                phase <= SQRT_CHECK;
+            end
+            SQRT_CHECK: begin
+                sqrt_trial_squared <= sqrt_trial_reg * sqrt_trial_reg;
+                phase <= SQRT_DECIDE;
+            end
+            SQRT_DECIDE: begin
+                if (sqrt_trial_squared <= discriminant_q8)
+                    sqrt_value <= sqrt_trial_reg;
+                if (sqrt_bit == 0) phase <= DIV_INIT;
+                else begin
+                    sqrt_bit <= sqrt_bit - 1'b1;
+                    phase <= SQRT_PREP;
+                end
             end
             DIV_INIT: begin
                 // x=(-B +/- sqrt(D))/2A, with B and sqrt scaled by 16.
                 phase<=DIV_RUN;divide_bit<=17;
+                denominator = (aa==0) ? $signed({bb[8],bb})
+                                      : $signed({aa,1'b0});
+                root_numerator = (aa==0) ? -($signed(cc) <<< 4) :
+                    -($signed(bb) <<< 4) +
+                    (root_index==0 ? -$signed({4'b0,sqrt_value})
+                                   :  $signed({4'b0,sqrt_value}));
                 dividend<=root_numerator<0 ? -root_numerator : root_numerator;
-                quotient_negative<=root_numerator[17] ^ denominator[9];
+                quotient_negative<=root_numerator<0 ^ denominator<0;
                 divisor<=denominator<0 ? -denominator : denominator;
                 quotient<=0;remainder<=0;
             end
             DIV_RUN: begin
                 // One restoring-division bit per cycle bounds the area and
                 // avoids a long combinational divider on the 100 MHz path.
+                next_remainder = {remainder[17:0],dividend[divide_bit]};
+                divide_take = next_remainder >= {9'd0,divisor};
                 remainder<=divide_take ? next_remainder-{9'd0,divisor} : next_remainder;
                 quotient[divide_bit]<=divide_take;
-                if (divide_bit==0) phase<=EVAL_SQUARE;
+                if (divide_bit==0) phase<=EVAL_SIGN;
                 else divide_bit<=divide_bit-1'b1;
+            end
+            EVAL_SIGN: begin
+                signed_root <= quotient_negative ?
+                    -$signed({1'b0,quotient}) : $signed({1'b0,quotient});
+                phase <= EVAL_SQUARE;
             end
             EVAL_SQUARE: begin
                 // Pipeline the square, A*x^2 and final Y independently;
@@ -149,6 +180,18 @@ module graph_quadratic_intersections(
             EVAL_Y: begin
                 y_calc<=quadratic_term+($signed(b1)*$signed(signed_root))+
                         ($signed(c1) <<< 4);
+                phase<=EVAL_PIXELS;
+            end
+            EVAL_PIXELS: begin
+                pixel_x = $signed({1'b0,origin_x}) +
+                          ((extended_root <<< scale_shift) >>> 4);
+                pixel_y = $signed({1'b0,origin_y}) -
+                          ((y_calc <<< scale_shift) >>> 4);
+                visible = (signed_root>=-19'sd32768) &&
+                          (signed_root<=19'sd32767) &&
+                          (y_calc>=-38'sd32768) && (y_calc<=38'sd32767) &&
+                          (pixel_x>=0) && (pixel_x<=95) &&
+                          (pixel_y>=0) && (pixel_y<=63);
                 phase<=RECORD;
             end
             RECORD: begin

@@ -1,7 +1,7 @@
 # Graph mode controls
 
-The main project boots into Hanna's two-entry menu. `BTNU` selects the upper
-Calculator entry, `BTND` selects the lower Graph entry, and `BTNC` enters the
+The main project boots into Hanna's three-entry menu. `BTNU`/`BTND` move among the
+Calculator, Graph and Triangle entries, and `BTNC` enters the
 selection. Raise `SW15` at any point to return to the menu.
 
 ## Input flow
@@ -18,13 +18,13 @@ selection. Raise `SW15` at any point to return to the menu.
 
 | Graph view | Buttons | Action |
 | --- | --- | --- |
-| default | `BTNU/BTND` | Zoom in/out; scale range is 1-8 pixels per unit. |
-| default | `BTNL/BTNR` | Pan horizontally. |
+| default | `BTNU/BTND` | Pan vertically; `BTNL/BTNR` pan horizontally. |
+| with `SW13` high | `BTNU/BTND` | Zoom in/out through 1, 2, 4, 8 pixels per unit. |
 
-Line 1 is green and line 2 is orange. Linear intersections are shown in white.
-The renderer displays `PAR`, `SAME`, `OUT`, or `ERR` when an intersection is not
-valid. Quadratic graphs are rendered, but the controller intentionally does not
-claim a quadratic intersection because that requires a separate root solver.
+Line 1 is green and line 2 is orange. Linear, linear-quadratic and
+quadratic-quadratic intersections are shown in white.
+The renderer displays `PAR`, `SAME`, `OUT`, `NO` or `ERR` when an intersection
+is not valid.
 
 The final Hanna-based top level uses `JB[7:0]` for the OLED and does not expose
 the earlier debug LED bus. `SW15` remains the mode-return control.

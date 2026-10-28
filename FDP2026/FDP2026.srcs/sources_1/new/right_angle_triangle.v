@@ -1,6 +1,7 @@
 `timescale 1ns / 1ps
 
 module right_angle_triangle(input CLOCK,
+                            input OLED_CLOCK, input frame_prepare,
                             input btnU, btnD, btnC,
                             input [6:0] sw,
                             input SW14,
@@ -8,32 +9,13 @@ module right_angle_triangle(input CLOCK,
                             output wire [15:0] oled_data
     );
   
-    wire [6:0] x;
-    wire [5:0] y;
-    
-    assign x = pixel_index % 96;
-    assign y = pixel_index / 96;
+    wire [6:0] x = pixel_index % 96;
+    wire [5:0] y = pixel_index / 96;
     
     localparam BLACK  = 16'h0000;
     localparam ORANGE = 16'hFF60;
     localparam GREEN  = 16'h07E0;
   
-    // square root function:
-    function [6:0] sqrt;
-        input [14:0] number;
-        integer i;
-    
-        begin
-            sqrt = 0;
-    
-            for (i = 0; i < 128; i = i + 1) begin
-                if (i*i <= number)
-                    sqrt = i;
-            end
-        end
-    endfunction
-  
-    
     localparam choice_hyp = 0;
     localparam choice_leg = 1;
     reg choice = choice_hyp;
@@ -53,6 +35,17 @@ module right_angle_triangle(input CLOCK,
     
     // calculation
     reg [14:0] square_value;
+    reg calculate;
+    wire sqrt_busy,sqrt_done;
+    wire [7:0] sqrt_result;
+    sqrt_15bit square_root(
+        .clk(CLOCK),.start(calculate),.value(square_value),
+        .busy(sqrt_busy),.done(sqrt_done),.root(sqrt_result));
+
+    reg calculation_phase;
+    wire [13:0] a_squared = a*a;
+    wire [13:0] b_squared = b*b;
+    wire [13:0] c_squared = c*c;
     
     always @(posedge CLOCK) begin
         
@@ -92,24 +85,25 @@ module right_angle_triangle(input CLOCK,
                 end
             end
 
-            // calculate
+            // calculate over explicit cycles; no 128-way square search or
+            // multi-cycle multiplier sits in one 100 MHz path.
             state_3: begin
-
-                if (choice == choice_hyp) begin
-                    square_value = a*a + b*b;
-                    c <= sqrt(square_value);
-                end
-
-                else begin
-                    if (c*c >= b*b) begin
-                        square_value = c*c - b*b;
-                        a <= sqrt(square_value);
+                if (calculation_phase == 1'b0) begin
+                    if (choice == choice_hyp)
+                        square_value <= a_squared + b_squared;
+                    else if (c_squared >= b_squared)
+                        square_value <= c_squared - b_squared;
+                    else
+                        square_value <= 0;
+                    calculate <= 1'b1;
+                    calculation_phase <= 1'b1;
+                end else begin
+                    calculate <= 1'b0;
+                    if (sqrt_done) begin
+                        if (choice == choice_hyp) c <= sqrt_result;
+                        else a <= (c_squared >= b_squared) ? sqrt_result : 7'd0;
+                        calculation_phase <= 1'b0;
                     end
-
-                    else begin
-                        a <= 0;
-                    end
-
                 end
             end
         endcase
@@ -118,21 +112,45 @@ module right_angle_triangle(input CLOCK,
         if (SW14) begin
             state <= state_0;
             choice <= choice_hyp;
+            calculate <= 1'b0;
+            calculation_phase <= 1'b0;
         end
 
     end
     
   
   //triangle graphics
-  triangle_renderer graphics(.pixel_index(pixel_index),
-                             .state(state),
-                             .choice(choice),
-                             .a(a),
-                             .b(b),
-                             .c(c),
-                             .sw(sw),
-                             .invalid(invalid),
-                             .oled_data(oled_data));
+    // Freeze all triangle display values on the OLED frame boundary.
+    localparam integer SNAPSHOT_WIDTH = 40;
+    wire [SNAPSHOT_WIDTH-1:0] snapshot_in,snapshot_out;
+    wire [1:0] frame_state;
+    wire frame_choice,frame_invalid;
+    wire [6:0] frame_a,frame_b,frame_sw;
+    wire [14:0] frame_c;
+    wire [15:0] triangle_pixel;
+    wire invalid = 1'b0;
+    assign snapshot_in={state,choice,a,b,c,sw,invalid};
+    assign {frame_state,frame_choice,frame_a,frame_b,frame_c,frame_sw,
+            frame_invalid}=snapshot_out;
+    frame_snapshot #(.WIDTH(SNAPSHOT_WIDTH)) frame_values(
+        .clk_src(CLOCK),.reset_src(SW14),
+        .clk_dst(OLED_CLOCK),.reset_dst(SW14),
+        .frame_prepare(frame_prepare),.data(snapshot_in),
+        .data_out(snapshot_out));
+    // Each renderer uses the current pixel_index.  Do not add another aligned
+    // stage here: triangle_renderer already drives the final pixel for that
+    // address, and a second stage would shift color by one OLED pixel.
+    assign oled_data = triangle_pixel;
+
+  triangle_renderer graphics(.x(x),.y(y),
+                             .state(frame_state),
+                             .choice(frame_choice),
+                             .a(frame_a),
+                             .b(frame_b),
+                             .c(frame_c),
+                             .sw(frame_sw),
+                             .invalid(frame_invalid),
+                             .oled_data(triangle_pixel));
     
 endmodule
 

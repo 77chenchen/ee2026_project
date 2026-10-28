@@ -19,7 +19,7 @@ module My_Top_Module (input CLOCK,
 
     wire clk6p25m;
     wire [12:0] pixel_index;
-    wire frame_begin, sending_pixels, sample_pixel;
+    wire frame_prepare, frame_begin, sending_pixels, sample_pixel;
     wire oled_cs, oled_sdin, oled_sclk, oled_d_cn;
     wire oled_resn, oled_vccen, oled_pmoden;
     
@@ -59,6 +59,7 @@ module My_Top_Module (input CLOCK,
         .clk(clk6p25m),
         .reset(1'b0),
 
+        .frame_prepare(frame_prepare),
         .frame_begin(frame_begin),
         .sending_pixels(sending_pixels),
         .sample_pixel(sample_pixel),
@@ -236,9 +237,21 @@ module My_Top_Module (input CLOCK,
     localparam state_triangle   = 2'b11;
     
     reg [1:0] choice = state_nothing;
+    // Menu state is multi-bit.  Use the same request-qualified frame snapshot
+    // as the data paths instead of independently synchronizing its bits.
+    wire [1:0] arrow_oled, choice_oled;
+    frame_snapshot #(.WIDTH(4)) menu_state(
+        .clk_src(CLOCK), .reset_src(1'b0),
+        .clk_dst(clk6p25m), .reset_dst(1'b0),
+        .frame_prepare(frame_prepare),
+        .data({arrow, choice}),
+        .data_out({arrow_oled, choice_oled}));
     
     // Calculator module:
     calculator calculator_module(.CLOCK(CLOCK),
+                                 .OLED_CLOCK(clk6p25m),
+                                 .frame_prepare(frame_prepare),
+                                 .oled_reset(1'b0),
                                  .btnU(db_btnU && choice == state_calculator),
                                  .btnD(db_btnD && choice == state_calculator),
                                  .btnL(db_btnL && choice == state_calculator),
@@ -257,6 +270,7 @@ module My_Top_Module (input CLOCK,
     // Graph-module:
     graph_mode_integration graphnator(
         .CLOCK(CLOCK),
+        .OLED_CLOCK(clk6p25m),
         .active(choice == state_graph),
         .btnU(db_btnU && choice == state_graph),
         .btnD(db_btnD && choice == state_graph),
@@ -264,7 +278,9 @@ module My_Top_Module (input CLOCK,
         .btnR(db_btnR && choice == state_graph),
         .btnC(db_btnC && choice == state_graph),
         .sw(sw),
+        .frame_prepare(frame_prepare),
         .frame_begin(frame_begin),
+        .oled_reset(1'b0),
         .pixel_index(pixel_index),
         .oled_data(oled_data_graph)
     );
@@ -272,6 +288,8 @@ module My_Top_Module (input CLOCK,
     // Triangle module:
     
    right_angle_triangle triangle(.CLOCK(CLOCK),
+                                 .OLED_CLOCK(clk6p25m),
+                                 .frame_prepare(frame_prepare),
                                  .btnU(db_btnU && choice == state_triangle),
                                  .btnD(db_btnD && choice == state_triangle),
                                  .btnC(db_btnC && choice == state_triangle),
@@ -319,7 +337,6 @@ module My_Top_Module (input CLOCK,
     
         
     always @(*) begin
-    
         oled_data_menu = BLACK;
     
         // MENU title
@@ -328,30 +345,32 @@ module My_Top_Module (input CLOCK,
     
         // CALCULATOR
         if (draw_word(1, x, y, 20, 20))
-            oled_data_menu = (arrow == 0) ? GREEN : WHITE;
+            oled_data_menu = (arrow_oled == 0) ? GREEN : WHITE;
     
         // GRAPH
         if (draw_word(2, x, y, 20, 35))
-            oled_data_menu = (arrow == 1) ? GREEN : WHITE;
+            oled_data_menu = (arrow_oled == 1) ? GREEN : WHITE;
     
         // TRIANGLE
         if (draw_word(3, x, y, 20, 50))
-            oled_data_menu = (arrow == 2) ? GREEN : WHITE;
+            oled_data_menu = (arrow_oled == 2) ? GREEN : WHITE;
     
         // Selection arrow
         if (draw_arrow(x, y, 10,
-            (arrow == 0) ? 20 :
-            (arrow == 1) ? 35 : 50))
+            (arrow_oled == 0) ? 20 :
+            (arrow_oled == 1) ? 35 : 50))
             oled_data_menu = ORANGE;
     
     end
     
     assign led = sw;
     
-    assign oled_data = (choice == state_calculator) ? oled_data_calculator :
-                       (choice == state_graph)      ? oled_data_graph      :
-                       (choice == state_triangle)   ? oled_data_triangle   :
-                                                      oled_data_menu;
+    // Each mode output is already registered on the OLED clock.  Keep this
+    // final selection combinational so no mode is delayed by a whole pixel.
+    assign oled_data = (choice_oled == state_calculator) ? oled_data_calculator :
+                       (choice_oled == state_graph)      ? oled_data_graph      :
+                       (choice_oled == state_triangle)   ? oled_data_triangle   :
+                                                          oled_data_menu;
     
 endmodule
 

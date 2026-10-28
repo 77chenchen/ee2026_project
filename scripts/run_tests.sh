@@ -20,18 +20,23 @@ run_tb button_onepulse_tb \
     "$src/button_onepulse.v" "$sim/button_onepulse_tb.v"
 
 run_tb graph_controller_tb \
-    "$oskar_src/graph_controller.v" "$src/graph_cubic_input.v" \
+    "$oskar_src/graph_controller.v" \
     "$src/graph_quadratic_intersections.v" "$src/graph_controller_adapter.v" \
     "$sim/graph_controller_tb.v"
 
 run_tb graph_extensions_tb \
     "$src/graph_quadratic_intersections.v" "$sim/graph_extensions_tb.v"
 
+run_tb timing_primitives_tb \
+    "$src/calculator_divider.v" "$src/sqrt_15bit.v" "$src/frame_snapshot.v" \
+    "$sim/timing_primitives_tb.v"
+
+
 run_tb mouse_graph_adapter_tb \
     "$src/mouse_graph_adapter.v" "$sim/mouse_graph_adapter_tb.v"
 
 run_tb graph_renderer_tb \
-    "$src/graph_curve_cache.v" "$src/graph_renderer.v" \
+    "$src/graph_renderer.v" \
     "$sim/graph_renderer_tb.v"
 
 run_tb oled_display_tb \
@@ -41,12 +46,13 @@ run_tb integration_tb \
     "$src/clock_hz.v" "$src/debounce.v" \
     "$src/signed_switch_input.v" "$src/check_invalid.v" \
     "$src/check_overflow.v" "$src/calculation_history.v" \
-    "$src/calculator.v" "$src/switch_to_binary.v" \
+    "$src/calculator.v" "$src/calculator_divider.v" \
+    "$src/frame_snapshot.v" "$src/sqrt_15bit.v" "$src/switch_to_binary.v" \
     "$src/history_renderer.v" "$src/owerflow_renderer.v" \
     "$src/right_angle_triangle.v" "$src/triangle_renderer.v" \
-    "$oskar_src/graph_controller.v" "$src/graph_cubic_input.v" \
+    "$oskar_src/graph_controller.v" \
     "$src/graph_quadratic_intersections.v" "$src/graph_controller_adapter.v" \
-    "$src/graph_curve_cache.v" "$src/graph_renderer.v" \
+    "$src/graph_renderer.v" \
     "$src/graph_mode_integration.v" "$src/Oled_Display.v" \
     "$src/My_Top_Module.v" "$sim/integration_tb.v"
 

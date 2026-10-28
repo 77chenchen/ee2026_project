@@ -36,6 +36,19 @@ if {[get_property STATUS [get_runs synth_1]] ne "synth_design Complete!"} {
     error "Synthesis did not complete: [get_property STATUS [get_runs synth_1]]"
 }
 open_run synth_1
+set synth_missing [check_timing -override_defaults {no_clock unconstrained_internal_endpoints}]
+set report_file [open [file join $report_dir synthesis_check_timing.txt] w]
+puts $report_file $synth_missing
+close $report_file
+if {[string match "*no_clock*" $synth_missing] ||
+    [string match "*unconstrained_internal_endpoints*" $synth_missing]} {
+    # The full text is retained in the report; list the structural check
+    # again so an unconstrained OLED-domain path cannot be mistaken for a pass.
+    puts $synth_missing
+}
+if {[llength [get_timing_paths -max_paths 1 -delay_type max]] == 0} {
+    error "Synthesis has no constrained path; check the OLED generated clock"
+}
 set utilization [report_utilization -return_string]
 set report_file [open [file join $report_dir synthesis_utilization.txt] w]
 puts $report_file $utilization
@@ -54,6 +67,8 @@ set report_file [open [file join $report_dir routed_utilization.txt] w]
 puts $report_file $utilization
 close $report_file
 check_utilization $utilization routed
+set check_timing_report [file join $report_dir routed_check_timing.txt]
+check_timing -verbose -file $check_timing_report
 report_timing_summary -file [file join $report_dir routed_timing.txt]
 set worst_path [lindex [get_timing_paths -max_paths 1 -delay_type max] 0]
 if {$worst_path eq ""} {
@@ -64,5 +79,11 @@ puts "Worst routed setup slack: $slack ns"
 if {$slack < 0} {
     error "Routed design fails the 100 MHz timing constraint (WNS $slack ns)"
 }
+set hold_path [lindex [get_timing_paths -max_paths 1 -delay_type min] 0]
+if {$hold_path ne "" && [get_property SLACK $hold_path] < 0} {
+    error "Routed design fails hold timing: [get_property SLACK $hold_path] ns"
+}
 puts "PASS: XC7A35T resources and routed timing are within limits."
+puts "See routed_timing.txt and routed_check_timing.txt for clock-domain coverage,"
+puts "hold/pulse-width results and external I/O-delay warnings."
 close_project

@@ -1,7 +1,8 @@
 `timescale 1ns / 1ps
 
 module history_renderer(
-    input [12:0] pixel_index,
+    input [6:0] x,
+    input [5:0] y,
     input [1:0] count,
     input [1:0] history_select,
     
@@ -23,12 +24,6 @@ module history_renderer(
     input recall_error,
     output reg [15:0] pixel_data
     );
-    
-    wire [6:0] x;
-    wire [5:0] y;
-    
-    assign x = pixel_index % 96;
-    assign y = pixel_index / 96;
     
     // OLED colours (RGB565)
     localparam BLACK  = 16'h0000;

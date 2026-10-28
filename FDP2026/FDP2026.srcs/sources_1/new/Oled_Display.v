@@ -32,7 +32,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-module Oled_Display(clk, reset, frame_begin, sending_pixels,
+module Oled_Display(clk, reset, frame_prepare, frame_begin, sending_pixels,
   sample_pixel, pixel_index, pixel_data, cs, sdin, sclk, d_cn, resn, vccen,
   pmoden);
 localparam Width = 96;
@@ -42,7 +42,7 @@ localparam PixelCountWidth = $clog2(PixelCount);
 
 parameter ClkFreq = 6250000; // Hz
 input clk, reset;
-output frame_begin, sending_pixels, sample_pixel;
+output frame_prepare, frame_begin, sending_pixels, sample_pixel;
 output [PixelCountWidth-1:0] pixel_index;
 input [15:0] pixel_data;
 output cs, sdin, sclk, d_cn, resn, vccen, pmoden;
@@ -106,6 +106,10 @@ reg [StateWidth-1:0] state;
 wire [StateWidth-1:0] next_state = fsm_next_state(state, frame_begin, pixel_index);
 
 assign sending_pixels = state == SendPixel;
+// Asserted while the driver prepares the next frame's address window.
+// The system domain can cross a complete display snapshot before the first
+// new pixel is loaded.
+assign frame_prepare = state == PrepareNextFrame;
 
 assign resn = state != Reset;
 assign d_cn = sending_pixels;

@@ -1,6 +1,7 @@
 `timescale 1ns / 1ps
 
-module triangle_renderer(input [12:0] pixel_index,
+module triangle_renderer(input [6:0] x,
+                         input [5:0] y,
                          input [1:0] state,
                          input choice,
                          input [6:0] a,
@@ -10,12 +11,6 @@ module triangle_renderer(input [12:0] pixel_index,
                          input invalid,
                          output reg [15:0] oled_data);
                          
-    wire [6:0] x;
-    wire [5:0] y;
-    
-    assign x = pixel_index % 96;
-    assign y = pixel_index / 96;
-    
     // OLED colours (RGB565)
     localparam BLACK    = 16'h0000;
     localparam WHITE    = 16'hFFFF;

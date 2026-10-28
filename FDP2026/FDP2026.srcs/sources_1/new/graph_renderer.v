@@ -1,23 +1,22 @@
 `timescale 1ns / 1ps
 
-// Combinational 96x64 RGB565 graph renderer.
+// Direct 96x64 RGB565 graph renderer.  Linear and quadratic curves are
+// evaluated at the current column and the previous column so steep segments
+// remain joined.  Parameters are frame-stable and this module runs on the
+// 6.25 MHz OLED clock, leaving the 100 MHz domain free of pixel arithmetic.
 module graph_renderer #(
     parameter INCLUDE_TEXT = 1
 ) (
-    input  wire clk,
     input  wire [12:0] pixel_index,
     input  wire [1:0]  graph_count,
     input  wire        graph1_type,
     input  wire        graph2_type,
-    input  wire        cubic1, cubic2,
     input  wire signed [7:0] a1,
     input  wire signed [7:0] b1,
     input  wire signed [7:0] c1,
-    input  wire signed [7:0] d1,
     input  wire signed [7:0] a2,
     input  wire signed [7:0] b2,
     input  wire signed [7:0] c2,
-    input  wire signed [7:0] d2,
     input  wire signed [7:0] current_input,
     input  wire [2:0]  controller_state,
     input  wire        current_graph,
@@ -45,7 +44,6 @@ module graph_renderer #(
     localparam [2:0] ENTER_A      = 3'd2;
     localparam [2:0] ENTER_B      = 3'd3;
     localparam [2:0] ENTER_C      = 3'd4;
-    localparam [2:0] ENTER_D      = 3'd5;
     localparam [2:0] READY        = 3'd6;
     localparam [2:0] VIEW_GRAPH   = 3'd7;
 
@@ -71,17 +69,46 @@ module graph_renderer #(
 
     wire signed [4:0] graph_scale_signed =
         $signed({1'b0, scale_px_per_unit});
-    wire cache_ready;
-    wire [13:0] bounds1,bounds2;
-    graph_curve_cache curve_cache(
-        .clk(clk),.enable(draw_enable),.screen_x(screen_x),
-        .origin_x(origin_x),.origin_y(origin_y),.scale(scale_px_per_unit),
-        .graph1_type(graph1_type),.graph2_type(graph2_type),
-        .cubic1(cubic1),.cubic2(cubic2),
-        .a1(a1),.b1(b1),.c1(c1),.d1(d1),
-        .a2(a2),.b2(b2),.c2(c2),.d2(d2),
-        .ready(cache_ready),.bounds1(bounds1),.bounds2(bounds2)
-    );
+    // All arithmetic is explicitly sized.  Scale is a power of two, so a
+    // quadratic term is scaled with an arithmetic shift, never a divider.
+    wire [1:0] scale_shift = (scale_px_per_unit == 8) ? 2'd3 :
+                             (scale_px_per_unit == 4) ? 2'd2 :
+                             (scale_px_per_unit == 2) ? 2'd1 : 2'd0;
+    wire signed [8:0] graph_dx = $signed({2'b0, screen_x}) -
+                                 $signed({2'b0, origin_x});
+    wire signed [8:0] graph_dx_prev = graph_dx - 9'sd1;
+    wire signed [17:0] dx_squared = graph_dx * graph_dx;
+    wire signed [17:0] dx_prev_squared = graph_dx_prev * graph_dx_prev;
+    wire signed [16:0] linear1 = $signed(b1) * graph_dx;
+    wire signed [16:0] linear2 = $signed(b2) * graph_dx;
+    wire signed [16:0] linear1_prev = $signed(b1) * graph_dx_prev;
+    wire signed [16:0] linear2_prev = $signed(b2) * graph_dx_prev;
+    wire signed [12:0] offset1 = $signed(c1) * graph_scale_signed;
+    wire signed [12:0] offset2 = $signed(c2) * graph_scale_signed;
+    wire signed [25:0] quadratic1 = $signed(a1) * dx_squared;
+    wire signed [25:0] quadratic2 = $signed(a2) * dx_squared;
+    wire signed [25:0] quadratic1_prev = $signed(a1) * dx_prev_squared;
+    wire signed [25:0] quadratic2_prev = $signed(a2) * dx_prev_squared;
+    wire signed [26:0] curve1_y = linear1 + offset1 +
+        (graph1_type ? (quadratic1 >>> scale_shift) : 27'sd0);
+    wire signed [26:0] curve2_y = linear2 + offset2 +
+        (graph2_type ? (quadratic2 >>> scale_shift) : 27'sd0);
+    wire signed [26:0] curve1_y_prev = linear1_prev + offset1 +
+        (graph1_type ? (quadratic1_prev >>> scale_shift) : 27'sd0);
+    wire signed [26:0] curve2_y_prev = linear2_prev + offset2 +
+        (graph2_type ? (quadratic2_prev >>> scale_shift) : 27'sd0);
+    wire signed [27:0] curve1_screen = $signed({1'b0, origin_y}) - curve1_y;
+    wire signed [27:0] curve2_screen = $signed({1'b0, origin_y}) - curve2_y;
+    wire signed [27:0] curve1_last = $signed({1'b0, origin_y}) - curve1_y_prev;
+    wire signed [27:0] curve2_last = $signed({1'b0, origin_y}) - curve2_y_prev;
+    wire signed [27:0] curve1_min = (curve1_screen < curve1_last) ?
+        curve1_screen : curve1_last;
+    wire signed [27:0] curve1_max = (curve1_screen > curve1_last) ?
+        curve1_screen : curve1_last;
+    wire signed [27:0] curve2_min = (curve2_screen < curve2_last) ?
+        curve2_screen : curve2_last;
+    wire signed [27:0] curve2_max = (curve2_screen > curve2_last) ?
+        curve2_screen : curve2_last;
     wire signed [20:0] intersection_x_scaled =
         $signed(intersection_x_q4) * graph_scale_signed;
     wire signed [20:0] intersection_y_scaled =
@@ -231,11 +258,12 @@ module graph_renderer #(
         // Join adjacent x-column samples.  This keeps steep lines continuous
         // without turning them into the wide bands produced by slope-sized
         // vertical tolerances.
-        graph1_pixel = draw_enable && cache_ready && bounds1[13:7]!=7'd127 &&
-                       ((py+1) >= bounds1[13:7]) && (py <= (bounds1[6:0]+1));
-        graph2_pixel = draw_enable && cache_ready && (graph_count == 2) &&
-                       bounds2[13:7]!=7'd127 &&
-                       ((py+1) >= bounds2[13:7]) && (py <= (bounds2[6:0]+1));
+        graph1_pixel = draw_enable && (curve1_min <= 63) &&
+                       (curve1_max >= 0) &&
+                       (py >= curve1_min - 1) && (py <= curve1_max + 1);
+        graph2_pixel = draw_enable && (graph_count == 2) &&
+                       (curve2_min <= 63) && (curve2_max >= 0) &&
+                       (py >= curve2_min - 1) && (py <= curve2_max + 1);
 
         marker_x = ox + (intersection_x_scaled >>> 4);
         marker_y = oy - (intersection_y_scaled >>> 4);
@@ -302,7 +330,7 @@ module graph_renderer #(
                 else
                     input_pixel=font_pixel("L",px,py,37,20)||font_pixel("I",px,py,43,20)||font_pixel("N",px,py,49,20);
             end else if ((controller_state==ENTER_A)||(controller_state==ENTER_B)||
-                         (controller_state==ENTER_C)||(controller_state==ENTER_D)) begin
+                         (controller_state==ENTER_C)) begin
                 input_pixel=((current_input<0)&&font_pixel("-",px,py,34,20))||
                             ((input_abs>=100)&&font_pixel(digit_character((input_abs/100)%10),px,py,40,20))||
                             ((input_abs>=10)&&font_pixel(digit_character((input_abs/10)%10),px,py,46,20))||
@@ -324,8 +352,6 @@ module graph_renderer #(
             title_pixel = font_pixel("B",px,py,2,2)||font_pixel(current_graph ? "2":"1",px,py,8,2);
         end else if (INCLUDE_TEXT && (controller_state == ENTER_C)) begin
             title_pixel = font_pixel("C",px,py,2,2)||font_pixel(current_graph ? "2":"1",px,py,8,2);
-        end else if (INCLUDE_TEXT && (controller_state == ENTER_D)) begin
-            title_pixel = font_pixel("D",px,py,2,2)||font_pixel(current_graph ? "2":"1",px,py,8,2);
         end else if (INCLUDE_TEXT && (controller_state == READY)) begin
             title_pixel = font_pixel("R",px,py,2,2)||font_pixel("E",px,py,8,2)||font_pixel("A",px,py,14,2)||
                           font_pixel("D",px,py,20,2)||font_pixel("Y",px,py,26,2);
@@ -335,7 +361,7 @@ module graph_renderer #(
         end
 
         action_pixel = 1'b0;
-        if (INCLUDE_TEXT && (controller_state <= ENTER_D)) begin
+        if (INCLUDE_TEXT && (controller_state <= ENTER_C)) begin
             action_pixel = font_pixel("C",px,py,2,55)||font_pixel("S",px,py,14,55)||
                            font_pixel("A",px,py,20,55)||font_pixel("V",px,py,26,55)||font_pixel("E",px,py,32,55);
         end else if (INCLUDE_TEXT && (controller_state == READY)) begin

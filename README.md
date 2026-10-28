@@ -10,13 +10,12 @@ Graph extensions live in separate adapter, solver and renderer files.
 
 - Calculator: signed 8-bit two's-complement input; addition, subtraction,
   multiplication and division; full result, invalid and overflow displays.
-- Graph: one or two linear `y=Bx+C`, quadratic `y=Ax²+Bx+C`, or cubic
-  `y=Ax³+Bx²+Cx+D` plots. A mixed pair is allowed. Graph 1 is green and
-  Graph 2 orange, with axes, grid, zoom and pan.
+- Graph: one or two linear `y=Bx+C` or quadratic `y=Ax²+Bx+C` plots.
+  A mixed pair is allowed. Graph 1 is green and Graph 2 orange, with axes,
+  grid, zoom and pan.
 - Graph intersections: two linear, linear–quadratic and two quadratic graphs.
   The latter two can have zero, one or two real roots. Visible roots receive
   white crosses; `PAR`, `SAME`, `OUT`, `NO` or `ERR` is shown when appropriate.
-  Cubic intersections are not implemented; cubic graphs are plot-only.
 - Right-angle triangle mode from Hanna's top-level integration.
 
 ## Controls
@@ -29,10 +28,10 @@ debounced and routed only to the active mode. `SW7..SW0` represent a signed
 For Graph Mode:
 
 1. At `COUNT`, set `SW0=0` for one graph or `SW0=1` for two, then press `BTNC`.
-2. At `TYPE1` (and `TYPE2` if needed), select line with `SW0=0, SW1=0`,
-   quadratic with `SW0=1, SW1=0`, or cubic with `SW1=1`. Press `BTNC`.
+2. At `TYPE1` (and `TYPE2` if needed), select line with `SW0=0` or
+   quadratic with `SW0=1`. Press `BTNC`.
 3. Set each coefficient on `SW7..SW0` and press `BTNC` to save it. A line
-   takes `B,C`; a quadratic takes `A,B,C`; a cubic takes `A,B,C,D`.
+   takes `B,C`; a quadratic takes `A,B,C`.
 4. At `READY`, lower and then raise `SW14` to draw. In the graph view,
    `BTNL`/`BTNR` pan horizontally and `BTNU`/`BTND` pan vertically.
    Holding `SW13` changes the latter buttons to zoom in/out through
@@ -40,8 +39,8 @@ For Graph Mode:
 
 The OLED labels the current input stage and shows the signed switch value.
 At zoom 1 or 2, the grid remains at least eight pixels apart so it does not
-cover the curves. A plot cache is rebuilt after coefficients or view settings
-change; rendering resumes from the next complete OLED frame.
+cover the curves. Display parameters are captured at the OLED frame boundary;
+each frame uses one complete coefficient/view set.
 
 The optional PS/2 mouse and coordinate cursor modules remain in the
 repository, but are excluded from the resource-constrained synthesis top.
@@ -66,9 +65,10 @@ On a machine with Icarus Verilog, run:
 ./scripts/run_tests.sh
 ```
 
-The suite checks controller input, 0/1/2 intersections, signed cubic and
-quadratic pixels at multiple zoom levels, both markers, OLED reset and all
-6144 transmitted pixels, and routing through Hanna's top-level menu.
+The suite checks controller input, 0/1/2 intersections, signed linear and
+quadratic pixels at multiple zoom levels, both markers, OLED reset, the first
+and last transmitted RGB565 pixels, and routing through Hanna's top-level
+menu.
 
 For **actual FPGA resource and timing verification**, open the checked-in
 Vivado project and run this script in Vivado batch mode (adjust the path):
@@ -84,7 +84,8 @@ program a bitstream. Vivado is not installed on this development machine;
 simulation passing is **not** a substitute for a passing implementation
 report and on-board OLED check.
 
-The graph curve cache reuses one multiplier across columns. The intersection
-solver also reuses a sequential divider instead of instantiating a wide
-combinational divider. These choices reduce logic use, but only a fresh
-Vivado report can establish whether the final design fits and meets timing.
+The calculator divider, triangle square root and intersection solver are
+serialized over multiple 100 MHz cycles. Linear/quadratic curves are evaluated
+directly in the 6.25 MHz OLED domain from frame-stable parameters. Only a
+fresh Vivado report can establish whether the final design fits and meets
+timing.

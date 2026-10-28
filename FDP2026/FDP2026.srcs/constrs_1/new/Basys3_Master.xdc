@@ -7,6 +7,22 @@
 set_property -dict { PACKAGE_PIN W5   IOSTANDARD LVCMOS33 } [get_ports CLOCK]
 create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports CLOCK]
 
+# The OLED core is clocked by the registered 6.25 MHz divider output.  This
+# is a real generated clock, not a false path: every OLED register and every
+# crossing into it must still be timed.  The source relationship also lets
+# Vivado check the frame-boundary handshake between 100 MHz and 6.25 MHz.
+create_generated_clock -name oled_clk -source [get_ports CLOCK] -divide_by 16 \
+    [get_pins clk_6_25/SLOW_CLOCK_reg/Q]
+
+# Board inputs are asynchronous to CLOCK.  They are synchronized and
+# debounced in RTL; constrain only the external board-to-pin flight time.
+set_input_delay -clock sys_clk_pin -max 2.000 [get_ports {sw[*] btnU btnD btnC btnL btnR}]
+set_input_delay -clock sys_clk_pin -min 0.000 [get_ports {sw[*] btnU btnD btnC btnL btnR}]
+set_output_delay -clock oled_clk -max 2.000 [get_ports {JB[*]}]
+set_output_delay -clock oled_clk -min 0.000 [get_ports {JB[*]}]
+set_output_delay -clock sys_clk_pin -max 2.000 [get_ports {led[*] seg[*] an[*]}]
+set_output_delay -clock sys_clk_pin -min 0.000 [get_ports {led[*] seg[*] an[*]}]
+
 
 ## Switches
 set_property -dict { PACKAGE_PIN V17   IOSTANDARD LVCMOS33 } [get_ports {sw[0]}]

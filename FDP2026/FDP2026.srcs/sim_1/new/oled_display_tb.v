@@ -13,6 +13,7 @@ module oled_display_tb;
     reg reset = 1'b1;
 
     wire frame_begin;
+    wire frame_prepare;
     wire sending_pixels;
     wire sample_pixel;
     wire [12:0] pixel_index;
@@ -33,6 +34,10 @@ module oled_display_tb;
     integer bit_count = 0;
     integer error_count = 0;
     reg [15:0] captured_word = 16'h0000;
+    // Keep a complete serial word log so the test proves both index order and
+    // the exact RGB565 data loaded for every transmitted pixel.
+    reg [15:0] word_log [0:6143];
+    integer last_sampled_index = -1;
     reg video_seen = 1'b0;
     reg frame_active = 1'b0;
     reg pixel_zero_prefetched = 1'b0;
@@ -41,6 +46,7 @@ module oled_display_tb;
 
     Oled_Display #(.ClkFreq(CLK_FREQ)) dut (
         .clk(clk), .reset(reset),
+        .frame_prepare(frame_prepare),
         .frame_begin(frame_begin), .sending_pixels(sending_pixels),
         .sample_pixel(sample_pixel), .pixel_index(pixel_index),
         .pixel_data(pixel_data), .cs(cs), .sdin(sdin), .sclk(sclk),
@@ -77,6 +83,7 @@ module oled_display_tb;
                          pixel_index);
                 error_count = error_count + 1;
             end
+            last_sampled_index = pixel_index;
             sample_count = sample_count + 1;
         end else if (pixel_index == 0) begin
             // The core requests pixel zero while waiting for the frame start.
@@ -108,6 +115,7 @@ module oled_display_tb;
                              captured_word);
                     error_count = error_count + 1;
                 end
+                if (word_count < 6144) word_log[word_count] = captured_word;
                 word_count = word_count + 1;
                 bit_count = 0;
                 captured_word = 16'h0000;
@@ -140,9 +148,23 @@ module oled_display_tb;
             $display("FAIL partial final pixel bits=%0d", bit_count);
             error_count = error_count + 1;
         end
+        // First and last serial pixels, plus row-major boundaries, must carry
+        // the exact RGB565 value that the pixel_index contract names.
+        if (word_log[0] !== 16'h0000 ||
+            word_log[95] !== 16'h005F ||
+            word_log[96] !== 16'h0060 ||
+            word_log[6143] !== 16'h17FF) begin
+            $display("FAIL serial pixel order/first/last %h %h %h %h",
+                     word_log[0],word_log[95],word_log[96],word_log[6143]);
+            error_count = error_count + 1;
+        end
+        if (last_sampled_index != 6143) begin
+            $display("FAIL last sampled index=%0d",last_sampled_index);
+            error_count = error_count + 1;
+        end
 
         if (error_count == 0)
-            $display("PASS OLED power/reset timing and complete 96x64 frame");
+            $display("PASS OLED power/reset timing, pixel order and complete 96x64 frame");
         else
             $display("FAIL OLED regression errors=%0d", error_count);
         $finish;
