@@ -1,6 +1,6 @@
 # Standalone OLED light test
 
 This branch contains only an independent Basys3 + PmodOLEDrgb test.
-The complete test is in [OLED_Test](OLED_Test/README.md): one Verilog source,
-one XDC pin file and one Vivado build script. It does not use the calculator
-project or any of its modules.
+Download [OLED_Test_Standalone.zip](OLED_Test_Standalone.zip), extract it, then
+open `OLED_Test.xpr` in Vivado. The project contains one Verilog source and one
+XDC pin file, and does not use any calculator module.
