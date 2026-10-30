@@ -4,11 +4,15 @@ create_clock -name sys_clk -period 10.000 [get_ports CLOCK]
 create_generated_clock -name oled_clk -source [get_ports CLOCK] -divide_by 16 \
     [get_pins oled_clk_reg/Q]
 
-# Whole two-row JB header; keep OLED GND/VCC aligned with the board labels.
-foreach {port pin} {JB[0] A14 JB[1] A16 JB[2] B15 JB[3] B16
-                    JB[4] A15 JB[5] A17 JB[6] C15 JB[7] C16} {
-    set_property -dict [list PACKAGE_PIN $pin IOSTANDARD LVCMOS33] [get_ports $port]
-}
+# Whole two-row JB header; use plain XDC commands for Vivado compatibility.
+set_property -dict {PACKAGE_PIN A14 IOSTANDARD LVCMOS33} [get_ports {JB[0]}]
+set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS33} [get_ports {JB[1]}]
+set_property -dict {PACKAGE_PIN B15 IOSTANDARD LVCMOS33} [get_ports {JB[2]}]
+set_property -dict {PACKAGE_PIN B16 IOSTANDARD LVCMOS33} [get_ports {JB[3]}]
+set_property -dict {PACKAGE_PIN A15 IOSTANDARD LVCMOS33} [get_ports {JB[4]}]
+set_property -dict {PACKAGE_PIN A17 IOSTANDARD LVCMOS33} [get_ports {JB[5]}]
+set_property -dict {PACKAGE_PIN C15 IOSTANDARD LVCMOS33} [get_ports {JB[6]}]
+set_property -dict {PACKAGE_PIN C16 IOSTANDARD LVCMOS33} [get_ports {JB[7]}]
 set_property CONFIG_VOLTAGE 3.3 [current_design]
 set_property CFGBVS VCCO [current_design]
 set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
