@@ -1,0 +1,6 @@
+vivado_project/
+reports/
+.Xil/
+*.jou
+*.log
+*.str
