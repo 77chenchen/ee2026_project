@@ -1,19 +1,20 @@
-# OLED 最小亮屏测试
+# 独立 OLED 亮屏测试
 
-这个独立工程只用 `OLED_Test_Top.v` 和仓库已有的课程 `Oled_Display.v`。
-上板后无需按键或拨码，连接在 **JB** 的 OLED 应在初始化后显示**整屏白色**。
+这里的 Verilog **只有一个文件**：`OLED_Test_Top.v`。不引用计算器、Graph 或原工程的 OLED 驱动。
+适用硬件是 Basys3 + Digilent PmodOLEDrgb（96×64，SSD1331），OLED 接在完整的双排 **JB**。
 
-在 Windows Vivado 的 Tcl Console 执行（替换成实际路径）：
+先给板子断电再插 OLED，核对 GND/VCC，避免插反或错位。在 Windows Vivado Tcl Console 运行：
 
 ```tcl
-source {C:/path/to/ee2026_project/OLED_Test/build.tcl}
+source {C:/你的路径/OLED_Test/build.tcl}
 ```
 
-脚本生成独立工程并运行综合、布线和 bitstream；烧录：
+然后烧录 `OLED_Test/vivado_project/OLED_Test.runs/impl_1/OLED_Test_Top.bit`。
+无须按任何按钮；正常情况下约 0.13 秒后屏幕会整屏点亮。
+这个测试用 SSD1331 的 `A5` 全屏点亮命令，**不绘制图像或文字**。
+确认亮屏后重新烧录正常程序，避免长时间保持全屏最高亮度。
 
-```text
-OLED_Test/vivado_project/OLED_Test.runs/impl_1/OLED_Test_Top.bit
-```
+只有一个 Verilog 源文件和一份引脚约束 `oled_test.xdc`，可以把整个 `OLED_Test` 文件夹单独复制到另一台电脑。
+若仍黑屏，先检查烧录文件、JB 接线方向和供电；黑屏本身不能单独证明 OLED 损坏。
 
-接线前先给开发板断电，将 OLED 对准完整的双排 **JB** 插好，核对 GND/VCC，避免反插或错位。
-这个测试不使用原计算器顶层。若仍黑屏，先确认烧录的是上述 `.bit`、JB 插接方向和供电；黑屏本身不能证明 OLED 已损坏。
+依据：[Digilent PmodOLEDrgb 手册](https://digilent.com/reference/_media/reference/pmod/pmodoledrgb/pmodoledrgb_rm.pdf)、[SSD1331 数据手册](https://support.newhavendisplay.com/hc/en-us/article_attachments/4414853585815)。
