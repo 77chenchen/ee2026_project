@@ -34,7 +34,7 @@ module My_Top_Module (input CLOCK,
     localparam GREEN  = 16'h07E0;
     localparam ORANGE = 16'hFF60;
     
-    wire [15:0] oled_data;
+    reg [15:0] oled_data;
     wire [12:0] pixel_index;
         
     // oleds for different modules 
@@ -345,10 +345,15 @@ module My_Top_Module (input CLOCK,
     
     assign led = sw;
     
-    assign oled_data = (choice == state_calculator) ? oled_data_calculator :
-                       (choice == state_graph)      ? oled_data_graph      :
-                       (choice == state_triangle)   ? oled_data_triangle   :
-                                                      oled_data_menu;
+    // Present one stable color word to the falling-edge OLED SPI loader.
+    // The menu still uses Hanna's original pixel coordinates and drawing
+    // logic; no extra coordinate or menu-color pipeline is inserted.
+    always @(posedge clk6p25m) begin
+        oled_data <= (choice == state_calculator) ? oled_data_calculator :
+                     (choice == state_graph)      ? oled_data_graph      :
+                     (choice == state_triangle)   ? oled_data_triangle   :
+                                                    oled_data_menu;
+    end
     
 endmodule
 
