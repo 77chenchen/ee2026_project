@@ -27,8 +27,8 @@ module graph_text_alignment_tb;
             serial_word={serial_word[14:0],jb[1]};
             bit_count=bit_count+1;
             if (bit_count==16) begin
-                px=word_count%96;
-                py=word_count/96;
+                px=(word_count%6144)%96;
+                py=(word_count%6144)/96;
                 if (py>=2 && py<9 && px<34) begin
                     title_bit=
                         dut.graphnator.graph_view.font_pixel("C",px,py,2,2) ||
@@ -68,9 +68,15 @@ module graph_text_alignment_tb;
 
     initial begin
         wait(dut.sending_pixels);
-        @(negedge dut.sending_pixels);
+        repeat (3) begin
+            @(negedge dut.sending_pixels);
+            if (word_count % 6144 != 0)
+                $fatal(1,"incomplete Graph SPI frame after %0d words",word_count);
+            if (word_count < 18432)
+                wait(dut.sending_pixels);
+        end
         #1;
-        if(word_count!==6144 || title_pixels==0 || action_pixels==0 || mismatch_count!==0)
+        if(word_count!==18432 || title_pixels==0 || action_pixels==0 || mismatch_count!==0)
             $fatal(1,"Graph text SPI: %0d words, %0d wrong text pixels",
                 word_count,mismatch_count);
         $display("PASS Graph text SPI: %0d title and %0d lower-left pixels aligned",
