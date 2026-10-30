@@ -1,7 +1,7 @@
 # EE2026 FPGA graphical calculator
 
-> **OLED 黑屏/硬件排查：** 本分支新增独立的 [OLED_Test 测试工程](OLED_Test/README.md)。
-> 测试时运行 `OLED_Test/build.tcl`，不要打开原计算器的 `FDP2026.xpr`。
+> **OLED 亮屏测试：** 本分支提供独立的 [OLED_Test 最小工程](OLED_Test/README.md)。
+> 运行 `OLED_Test/build.tcl`，烧录生成的 bitstream 后 OLED 应显示整屏白色。
 
 Group 06's active design targets the Basys3 `xc7a35tcpg236-1` and a 96 × 64
 RGB565 OLED on Pmod JB. The top-level menu and board ports follow Hanna's
