@@ -18,16 +18,29 @@ module My_Top_Module (input CLOCK,
                       output [3:0] an);
 
     wire clk6p25m;
+    wire [12:0] pixel_index;
+    wire frame_begin, sending_pixels, sample_pixel;
+    wire oled_cs, oled_sdin, oled_sclk, oled_d_cn;
+    wire oled_resn, oled_vccen, oled_pmoden;
+    // Hold the OLED core in reset across two 6.25 MHz edges so its own
+    // power-up delay is loaded before the Pmod supply is enabled.
+    reg [1:0] oled_startup_count = 2'd0;
+    wire oled_reset = (oled_startup_count != 2'd2);
+    always @(posedge clk6p25m) begin
+        if (oled_startup_count != 2'd2)
+            oled_startup_count <= oled_startup_count + 1'b1;
+    end
     
     clock_hz clk_6_25 (.HZ(6_250_000),
                        .CLOCK(CLOCK),
                        .SLOW_CLOCK(clk6p25m) 
                         );
-    wire [6:0] x;
-    wire [5:0] y;
-    
-    assign x = pixel_index % 96;
-    assign y = pixel_index / 96;
+    reg [6:0] x;
+    reg [5:0] y;
+    always @(posedge clk6p25m) begin
+        x <= pixel_index % 96;
+        y <= pixel_index / 96;
+    end
     
     localparam BLACK  = 16'h0000;
     localparam WHITE  = 16'hFFFF;
@@ -35,9 +48,9 @@ module My_Top_Module (input CLOCK,
     localparam ORANGE = 16'hFF60;
     
     reg [15:0] oled_data;
-    wire [12:0] pixel_index;
         
     // oleds for different modules 
+    // Driven only by the Graph-module integration below.
     wire [15:0] oled_data_graph;
     wire [15:0] oled_data_calculator;
     wire [15:0] oled_data_triangle;
@@ -51,9 +64,9 @@ module My_Top_Module (input CLOCK,
     assign JB[6] = oled_vccen;
     assign JB[7] = oled_pmoden;
     
-    Oled_Display oled (
+    Oled_Display #(.ClkFreq(6_250_000)) oled (
         .clk(clk6p25m),
-        .reset(1'b0),
+        .reset(oled_reset),
 
         .frame_begin(frame_begin),
         .sending_pixels(sending_pixels),
@@ -315,28 +328,35 @@ module My_Top_Module (input CLOCK,
     end
     
         
-    always @(*) begin
+    reg [6:0] menu_render_x;
+    reg [5:0] menu_render_y;
+    always @(posedge clk6p25m) begin
+        menu_render_x <= x;
+        menu_render_y <= y;
+    end
+
+    always @(posedge clk6p25m) begin
     
         oled_data_menu = BLACK;
     
         // MENU title
-        if (draw_word(0, x, y, 36, 5))
+        if (draw_word(0, menu_render_x, menu_render_y, 36, 5))
             oled_data_menu = ORANGE;
     
         // CALCULATOR
-        if (draw_word(1, x, y, 20, 20))
+        if (draw_word(1, menu_render_x, menu_render_y, 20, 20))
             oled_data_menu = (arrow == 0) ? GREEN : WHITE;
     
         // GRAPH
-        if (draw_word(2, x, y, 20, 35))
+        if (draw_word(2, menu_render_x, menu_render_y, 20, 35))
             oled_data_menu = (arrow == 1) ? GREEN : WHITE;
     
         // TRIANGLE
-        if (draw_word(3, x, y, 20, 50))
+        if (draw_word(3, menu_render_x, menu_render_y, 20, 50))
             oled_data_menu = (arrow == 2) ? GREEN : WHITE;
     
         // Selection arrow
-        if (draw_arrow(x, y, 10,
+        if (draw_arrow(menu_render_x, menu_render_y, 10,
             (arrow == 0) ? 20 :
             (arrow == 1) ? 35 : 50))
             oled_data_menu = ORANGE;
@@ -345,9 +365,8 @@ module My_Top_Module (input CLOCK,
     
     assign led = sw;
     
-    // Present one stable color word to the falling-edge OLED SPI loader.
-    // The menu still uses Hanna's original pixel coordinates and drawing
-    // logic; no extra coordinate or menu-color pipeline is inserted.
+    // Register the final mode mux once per OLED clock, so a choice change
+    // cannot cross into the falling-edge pixel load with raw 100 MHz skew.
     always @(posedge clk6p25m) begin
         oled_data <= (choice == state_calculator) ? oled_data_calculator :
                      (choice == state_graph)      ? oled_data_graph      :

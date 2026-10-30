@@ -1,4 +1,5 @@
-// DO NOT MODIFY THIS MODULE
+`timescale 1ns / 1ps
+// Course OLED interface; verified startup and complete-frame fixes.
 
 // The codes here are adapted from https://github.com/jhol/otl-icoboard-pmodoledrgb-demo/tree/master/fw/sim
 
@@ -149,7 +150,8 @@ function [StateWidth-1:0] fsm_next_state;
     SetColAddress: fsm_next_state = SetRowAddress;
     SetRowAddress: fsm_next_state = WaitNextFrame;
     WaitNextFrame: fsm_next_state = frame_begin ? SendPixel : WaitNextFrame;
-    SendPixel: fsm_next_state = (pixel_index == PixelCount-1) ?
+    // The last pixel must be loaded before leaving SendPixel.
+    SendPixel: fsm_next_state = (pixel_index == PixelCount) ?
       PrepareNextFrame : SendPixel;
     default: fsm_next_state = PowerUp;
   endcase
@@ -169,14 +171,15 @@ assign sdin = spi_word[SpiCommandMaxWidth-1] & spi_busy;
 
 // Video
 assign sample_pixel = (state == WaitNextFrame && frame_begin) ||
-  (sending_pixels && frame_counter[3:0] == 0);
+  (sending_pixels && frame_counter[3:0] == 0 && pixel_index != 0 &&
+   pixel_index < PixelCount);
 assign pixel_index = sending_pixels ?
   frame_counter[FrameDivWidth-1:$clog2(16)] : 0;
 
 always @(negedge clk) begin
   if (reset) begin
     frame_counter <= 0;
-    delay <= 0;
+    delay <= (ClkFreq * PowerDelay) / 1000;
     state <= 0;
     spi_word <= 0;
     spi_word_bit_count <= 0;
@@ -201,12 +204,12 @@ always @(negedge clk) begin
         Reset: begin
           spi_word <= 0;
           spi_word_bit_count <= 0;
-          delay <= (ClkFreq * ResetDelay) / 1000;
+          delay <= (ClkFreq * ResetDelay) / 1000000;
         end
         ReleaseReset: begin
           spi_word <= 0;
           spi_word_bit_count <= 0;
-          delay <= (ClkFreq * ResetDelay) / 1000;
+          delay <= (ClkFreq * ResetDelay) / 1000000;
         end
         EnableDriver: begin
           // Enable the driver

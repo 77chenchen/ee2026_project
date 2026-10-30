@@ -1,8 +1,8 @@
 `timescale 1ns / 1ps
 
 // Check that one rising-edge color register stays aligned with the OLED
-// driver's falling-edge SPI load. The unmodified Hanna driver emits 6143
-// words, so this test checks every word it actually transmits.
+// driver's falling-edge SPI load. The timing version of the driver emits a
+// complete 6144-word frame, so every pixel must remain aligned.
 module oled_pixel_output_stage_tb;
     reg clk = 0;
     always #80 clk = ~clk;
@@ -50,8 +50,8 @@ module oled_pixel_output_stage_tb;
         wait (sending_pixels);
         @(negedge sending_pixels);
         #1;
-        if (word_count != 6143 || bit_count != 0)
-            $fatal(1, "expected 6143 complete Hanna-driver words, got %0d", word_count);
+        if (word_count != 6144 || bit_count != 0)
+            $fatal(1, "expected 6144 complete OLED words, got %0d", word_count);
         $display("PASS one-stage OLED output register: %0d aligned SPI pixels", word_count);
         $finish;
     end
