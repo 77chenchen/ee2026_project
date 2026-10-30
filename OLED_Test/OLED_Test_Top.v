@@ -4,7 +4,8 @@
 // No other Verilog module is needed. The OLED on JB turns fully on.
 module OLED_Test_Top(
     input  wire       CLOCK,  // Basys3 100 MHz oscillator
-    output wire [7:0] JB
+    output wire [7:0] JB,
+    output wire [4:0] led
 );
     // Divide 100 MHz by 16 to make the SPI clock 6.25 MHz.
     reg [2:0] divide_count = 0;
@@ -33,6 +34,16 @@ module OLED_Test_Top(
     assign JB[5] = (phase != RESET_LOW);        // RESN
     assign JB[6] = (phase >= VCC_WAIT);         // VCCEN
     assign JB[7] = 1'b1;                        // PMODEN
+
+    // Board LEDs make it possible to diagnose a black OLED without ILA.
+    reg [24:0] heartbeat_count = 0;
+    always @(posedge CLOCK)
+        heartbeat_count <= heartbeat_count + 1'b1;
+    assign led[0] = heartbeat_count[24];        // Blinks if FPGA clock runs
+    assign led[1] = JB[7];                      // OLED logic power enabled
+    assign led[2] = JB[6];                      // OLED panel power enabled
+    assign led[3] = JB[5];                      // OLED reset released
+    assign led[4] = (phase == DONE) && !busy;   // Initialization complete
 
     // SSD1331 settings from Digilent's PmodOLEDrgb initialization sequence.
     // 0x2E stops scrolling; 0x25 clears the 96x64 screen before VCC is enabled.

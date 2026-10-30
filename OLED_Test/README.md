@@ -20,6 +20,10 @@ source {C:/OLED_Test/build.tcl}
 这个测试用 SSD1331 的 `A5` 全屏点亮命令，**不绘制图像或文字**。
 确认亮屏后重新烧录正常程序，避免长时间保持全屏最高亮度。
 
+如果仍黑屏，观察板载 LED：`LED0` 应持续闪烁；`LED1`、`LED2`、`LED3`、`LED4`
+应在初始化后亮起。它们只反映 FPGA 输出信号，不测量 OLED 实际电压。
+Vivado 的 `no supported debug core` 信息是正常的；本工程没有 ILA 调试核。
+
 工程只有一个 Verilog 源文件和一份引脚约束 `oled_test.xdc`，可以把整个 `OLED_Test` 文件夹单独复制到另一台电脑。
 若仍黑屏，先检查烧录文件、JB 接线方向和供电；黑屏本身不能单独证明 OLED 损坏。
 
