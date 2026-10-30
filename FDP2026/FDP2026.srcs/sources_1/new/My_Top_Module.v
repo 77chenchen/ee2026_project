@@ -266,6 +266,11 @@ module My_Top_Module (input CLOCK,
     );
     
     // Graph-module:
+    // The final oled_data register adds one pixel of latency to the Graph
+    // renderer. Prefetch its next address while keeping its own coordinate
+    // register and the common OLED output register unchanged.
+    wire [12:0] graph_prefetch_index =
+        (pixel_index == 13'd6143) ? 13'd0 : pixel_index + 13'd1;
     graph_mode_integration graphnator(
         .CLOCK(CLOCK),
         .OLED_CLOCK(clk6p25m),
@@ -277,7 +282,7 @@ module My_Top_Module (input CLOCK,
         .btnC(db_btnC && choice == state_graph),
         .sw(sw),
         .frame_begin(frame_begin),
-        .pixel_index(pixel_index),
+        .pixel_index(graph_prefetch_index),
         .oled_data(oled_data_graph)
     );
     
@@ -332,10 +337,12 @@ module My_Top_Module (input CLOCK,
     end
     
         
+    // The OLED requests the next pixel at its falling edge. Advance the
+    // registered menu address so the pipelined glyph color arrives in time.
     reg [6:0] menu_render_x;
     reg [5:0] menu_render_y;
     always @(posedge clk6p25m) begin
-        menu_render_x <= x;
+        menu_render_x <= x + 7'd1;
         menu_render_y <= y;
     end
 
