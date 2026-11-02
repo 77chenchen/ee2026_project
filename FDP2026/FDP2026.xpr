@@ -220,6 +220,9 @@
       <File Path="$PSRCDIR/sim_1/new/oled_display_tb.v">
         <FileInfo><Attr Name="UsedIn" Val="simulation"/></FileInfo>
       </File>
+      <File Path="$PSRCDIR/sim_1/new/triangle_tb.v">
+        <FileInfo><Attr Name="UsedIn" Val="simulation"/></FileInfo>
+      </File>
       <File Path="$PSRCDIR/sim_1/new/integration_tb.v">
         <FileInfo><Attr Name="UsedIn" Val="simulation"/></FileInfo>
       </File>
