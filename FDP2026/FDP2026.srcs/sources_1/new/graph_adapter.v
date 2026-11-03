@@ -4,7 +4,7 @@
 // Oskar handles the original linear/quadratic input flow. Only selecting a
 // cubic transfers control to our separate FSM; neither original is edited.
 // The adapter also owns view state and the shared intersection solver.
-module graph_controller_adapter #(
+module graph_adapter #(
     parameter integer ENABLE_MOUSE = 0
 ) (
     input  wire clk,

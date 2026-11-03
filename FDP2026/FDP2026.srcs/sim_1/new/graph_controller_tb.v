@@ -26,7 +26,7 @@ module graph_controller_tb;
 
     always #5 clk = ~clk;
 
-    graph_controller_adapter #(.ENABLE_MOUSE(1)) dut(
+    graph_adapter #(.ENABLE_MOUSE(1)) dut(
         .clk(clk), .reset(reset),
         .btnC_pressed(btnC), .btnU_pressed(btnU), .btnD_pressed(btnD),
         .btnL_pressed(btnL), .btnR_pressed(btnR),

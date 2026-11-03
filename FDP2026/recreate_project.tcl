@@ -24,7 +24,7 @@ set design_sources [list \
     [file join $origin_dir team_sources hanna_2026_10_17 graph_controller.v] \
     [file join $source_dir graph_cubic_input.v] \
     [file join $source_dir graph_quadratic_intersections.v] \
-    [file join $source_dir graph_controller_adapter.v] \
+    [file join $source_dir graph_adapter.v] \
     [file join $source_dir graph_curve_cache.v] \
     [file join $source_dir graph_renderer.v] \
     [file join $source_dir graph_mode_integration.v] \

@@ -45,7 +45,7 @@ module graph_mode_integration(
     wire intersection2_valid;
     wire signed [15:0] intersection2_x_q4, intersection2_y_q4;
 
-    graph_controller_adapter #(.ENABLE_MOUSE(0)) controller(
+    graph_adapter #(.ENABLE_MOUSE(0)) controller(
         .clk(CLOCK), .reset(reset), .btnC_pressed(btnC),
         .btnU_pressed(btnU), .btnD_pressed(btnD), .btnL_pressed(btnL),
         .btnR_pressed(btnR), .sw0(sw[0]), .sw1_cubic(sw[1]), .sw12_cursor(1'b0),

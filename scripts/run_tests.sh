@@ -18,7 +18,7 @@ run_tb() {
 
 run_tb graph_controller_tb \
     "$oskar_src/graph_controller.v" "$src/graph_cubic_input.v" \
-    "$src/graph_quadratic_intersections.v" "$src/graph_controller_adapter.v" \
+    "$src/graph_quadratic_intersections.v" "$src/graph_adapter.v" \
     "$sim/graph_controller_tb.v"
 
 run_tb graph_extensions_tb \
@@ -42,7 +42,7 @@ run_tb integration_tb \
     "$src/calculator.v" "$src/history_renderer.v" \
     "$src/right_angle_triangle.v" "$src/triangle_renderer.v" \
     "$oskar_src/graph_controller.v" "$src/graph_cubic_input.v" \
-    "$src/graph_quadratic_intersections.v" "$src/graph_controller_adapter.v" \
+    "$src/graph_quadratic_intersections.v" "$src/graph_adapter.v" \
     "$src/graph_curve_cache.v" "$src/graph_renderer.v" \
     "$src/graph_mode_integration.v" "$src/Oled_Display.v" \
     "$src/My_Top_Module.v" "$sim/integration_tb.v"
