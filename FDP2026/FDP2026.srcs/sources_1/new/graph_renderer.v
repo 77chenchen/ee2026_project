@@ -267,7 +267,7 @@ module graph_renderer #(
         abs_dy = dy;
         if (abs_dx < 0) abs_dx = -abs_dx;
         if (abs_dy < 0) abs_dy = -abs_dy;
-        // A two-pixel grid at zoom-out=1 obscured almost the whole image.
+        // Keep grid lines at least eight pixels apart at small scales.
         grid_mask = ((scale < 4) ? 8 : scale*2)-1;
         grid_pixel = draw_enable &&
                      (((abs_dx & grid_mask) == 0) ||

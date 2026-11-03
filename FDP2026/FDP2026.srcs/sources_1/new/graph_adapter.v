@@ -1,9 +1,6 @@
 `timescale 1ns / 1ps
 
-// Project integration layer around Oskar's unmodified graph_controller.
-// Oskar handles the original linear/quadratic input flow. Only selecting a
-// cubic transfers control to our separate FSM; neither original is edited.
-// The adapter also owns view state and the shared intersection solver.
+// Routes linear/quadratic and cubic input, and manages the view and intersections.
 module graph_adapter #(
     parameter integer ENABLE_MOUSE = 0
 ) (
@@ -71,7 +68,6 @@ module graph_adapter #(
     wire [2:0] extended_state;
     wire extended_current,extended_ready,extended_draw;
 
-    // The raw controller is intentionally instantiated without modifications.
     graph_controller oskar_controller(
         .clk(clk), .reset(reset || extended_active), .btnC_pressed(btnC_pressed),
         .sw0(sw0), .sw14(sw14_rising), .input_value(input_value),
@@ -131,8 +127,8 @@ module graph_adapter #(
             cursor_y_q4 <= 0;
             sw14_previous <= sw14;
         end else begin
-            // Oskar keeps this state internally; reproduce it only as an
-            // output for setup labels in the renderer.
+            // The controller does not expose this state; the renderer needs it
+            // to label Graph 1 and Graph 2 during input.
             if (start_extended) extended_active <= 1'b1;
             if ((oskar_state == NEXT_GRAPH) && (oskar_count == 2) && !oskar_current_graph)
                 oskar_current_graph <= 1'b1;

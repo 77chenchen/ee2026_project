@@ -1,8 +1,6 @@
 `timescale 1ns / 1ps
 
-// Graph implementation connected at the placeholder in the project top level.
-// It owns graph-only input synchronisation and freezes rendering parameters at
-// frame_begin, so an input change never splits an OLED frame into two views.
+// Synchronizes graph inputs and freezes rendering parameters at each OLED frame.
 module graph_mode_integration(
     input  wire CLOCK,
     input  wire active,
@@ -70,8 +68,7 @@ module graph_mode_integration(
         .intersection2_y_q4(intersection2_y_q4)
     );
 
-    // OLED pixel transmission lasts a whole frame.  Copying the controller
-    // outputs at its frame boundary avoids mixed old/new coefficient images.
+    // Keep each OLED frame consistent when coefficients or view settings change.
     reg signed [7:0] frame_input, frame_a1, frame_b1, frame_c1, frame_d1;
     reg signed [7:0] frame_a2, frame_b2, frame_c2, frame_d2;
     reg [1:0] frame_graph_count;

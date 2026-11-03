@@ -1,8 +1,6 @@
 `timescale 1ns / 1ps
 
-// Graph-only extension. Oskar's controller remains the source for setups that
-// use only linear/quadratic graphs; this controller takes over when SW1 selects
-// a cubic at either type-selection step.
+// Handles coefficient input after a cubic is selected for either graph.
 module graph_cubic_input(
     input wire clk, reset, start, btnC_pressed, sw0, sw1, sw14,
     input wire [1:0] start_count,
@@ -29,8 +27,7 @@ module graph_cubic_input(
             state<=SELECT_TYPE; current_graph<=0; ready<=0; draw<=0;
             sw14_previous<=sw14;
         end else if (start) begin
-            // A graph-2 cubic can be selected after Oskar has already saved
-            // graph 1. Copy that finished graph into our isolated FSM.
+            // Preserve Graph 1 if the cubic selection belongs to Graph 2.
             graph_count<=start_count;
             current_graph<=start_second;
             graph1_type<=start_graph1_type;
