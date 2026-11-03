@@ -45,7 +45,9 @@ are debounced and routed only to the selected mode.
    intersections are not calculated.
 5. In the graph view, `BTNL`/`BTNR` pan left/right and `BTNU`/`BTND` pan
    up/down. With `SW13` up, `BTNU` zooms in and `BTND` zooms out through
-   1, 2, 4 and 8 pixels per graph unit; `BTNL`/`BTNR` still pan horizontally.
+   1/8, 1/4, 1/2, 1, 2, 4 and 8 pixels per graph unit; `BTNL`/`BTNR` still
+   pan horizontally. The current scale appears at the lower right of the plot
+   (for example, `S1/8` is the widest view).
    Lower `SW13` to use up/down for vertical panning again. To enter new
    coefficients, return to the menu with `SW15` and re-enter Graph.
 6. Raise `SW12` while viewing the graph to read the X and Y coordinates of
@@ -54,7 +56,7 @@ are debounced and routed only to the selected mode.
    If no intersection is visible, the page shows `NO ROOT DATA`; the status
    label distinguishes parallel, identical, no-real-root and off-screen cases.
 
-The OLED labels each input stage. At zoom 1 or 2, grid lines stay at least
+The OLED labels each input stage. At scales below 4, grid lines stay at least
 eight pixels apart. The curve cache rebuilds when coefficients or view
 settings change; the renderer waits for that rebuild to finish before showing
 the curves.

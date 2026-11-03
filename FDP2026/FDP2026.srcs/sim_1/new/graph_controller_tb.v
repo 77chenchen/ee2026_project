@@ -17,6 +17,7 @@ module graph_controller_tb;
     wire [2:0] state;
     wire current_graph, ready, draw;
     wire [3:0] scale;
+    wire [1:0] zoom_out_shift;
     wire [6:0] origin_x;
     wire [5:0] origin_y;
     wire signed [15:0] cursor_x, cursor_y, ix, iy;
@@ -38,7 +39,8 @@ module graph_controller_tb;
         .cubic1(cubic1),.cubic2(cubic2),.d1(d1),.d2(d2),
         .a1(a1),.b1(b1),.c1(c1),.a2(a2),.b2(b2),.c2(c2),
         .state(state), .current_graph(current_graph), .ready(ready), .draw(draw),
-        .scale_px_per_unit(scale), .origin_x(origin_x), .origin_y(origin_y),
+        .scale_px_per_unit(scale), .zoom_out_shift(zoom_out_shift),
+        .origin_x(origin_x), .origin_y(origin_y),
         .cursor_x_q4(cursor_x), .cursor_y_q4(cursor_y),
         .graph_status(status), .intersection_valid(intersection_valid),
         .intersection_x_q4(ix), .intersection_y_q4(iy)
@@ -126,6 +128,18 @@ module graph_controller_tb;
             $finish_and_return(1);
         end
 
+        // Three extra levels extend the old minimum from 1 to 1/8 pixel/unit.
+        sw12=0;sw13=1;pulse_d();pulse_d();pulse_d();pulse_d();
+        if (scale!=1 || zoom_out_shift!=3) begin
+            $display("FAIL deep zoom-out scale=%0d shift=%0d",scale,zoom_out_shift);
+            $finish_and_return(1);
+        end
+        pulse_u();pulse_u();pulse_u();
+        if (scale!=1 || zoom_out_shift!=0) begin
+            $display("FAIL zoom-in return scale=%0d shift=%0d",scale,zoom_out_shift);
+            $finish_and_return(1);
+        end
+
         // Mouse zoom has priority over simultaneous button modes.
         sw12=1; sw13=1; mouse_screen_x=48; mouse_screen_y=32;
         mouse_zoom_out=0; pulse_mouse_in();
@@ -137,6 +151,12 @@ module graph_controller_tb;
         if (scale != 1) begin
             $display("FAIL mouse zoom-out scale=%0d",scale); $finish_and_return(1);
         end
+        pulse_mouse_out();
+        if (scale!=1 || zoom_out_shift!=1) begin
+            $display("FAIL mouse deep zoom-out shift=%0d",zoom_out_shift);
+            $finish_and_return(1);
+        end
+        pulse_mouse_in();
         mouse_zoom_out=0;
 
         // Recenter to the clicked position, clamped at both axes.
@@ -158,8 +178,9 @@ module graph_controller_tb;
         // Reset has priority over recenter and restores the default view.
         mouse_screen_x=80; mouse_screen_y=50;
         mouse_recenter=1; pulse_mouse_reset();
-        if (origin_x != 16 || origin_y != 14 || scale != 4) begin
-            $display("FAIL mouse reset priority origin=(%0d,%0d) scale=%0d",origin_x,origin_y,scale);
+        if (origin_x != 16 || origin_y != 14 || scale != 4 || zoom_out_shift!=0) begin
+            $display("FAIL mouse reset priority origin=(%0d,%0d) scale=%0d shift=%0d",
+                     origin_x,origin_y,scale,zoom_out_shift);
             $finish_and_return(1);
         end
         // Legacy button control remains valid after mouse operations.
@@ -199,6 +220,16 @@ module graph_controller_tb;
         repeat(100) @(posedge clk); #1;
         if (status != 3 || intersection_valid) begin
             $display("FAIL out status=%0d valid=%0d x=%0d",status,intersection_valid,ix);
+            $finish_and_return(1);
+        end
+        // At 1/4 pixel/unit the same x=y=100 crossing fits the screen.
+        sw14=1;@(posedge clk);#1;sw13=1;
+        pulse_d();pulse_d();pulse_d();pulse_d();
+        repeat(100) @(posedge clk);#1;
+        if (scale!=1 || zoom_out_shift!=2 || status!=0 || !intersection_valid ||
+            ix!=1600 || iy!=1600) begin
+            $display("FAIL zoomed-out root shift=%0d status=%0d valid=%0d x=%0d y=%0d",
+                     zoom_out_shift,status,intersection_valid,ix,iy);
             $finish_and_return(1);
         end
 

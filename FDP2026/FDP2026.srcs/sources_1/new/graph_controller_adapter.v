@@ -34,6 +34,7 @@ module graph_controller_adapter #(
     output wire current_graph,
     output wire ready, draw,
     output reg [3:0] scale_px_per_unit,
+    output reg [1:0] zoom_out_shift,
     output reg [6:0] origin_x,
     output reg [5:0] origin_y,
     output reg signed [15:0] cursor_x_q4,
@@ -123,6 +124,7 @@ module graph_controller_adapter #(
             oskar_current_graph <= 0;
             extended_active <= 0;
             scale_px_per_unit <= 4;
+            zoom_out_shift <= 0;
             origin_x <= DEFAULT_ORIGIN_X;
             origin_y <= DEFAULT_ORIGIN_Y;
             cursor_x_q4 <= 0;
@@ -138,6 +140,7 @@ module graph_controller_adapter #(
             if (state == VIEW_GRAPH) begin
                 if (ENABLE_MOUSE && mouse_reset_view) begin
                     scale_px_per_unit <= 4;
+                    zoom_out_shift <= 0;
                     origin_x <= DEFAULT_ORIGIN_X;
                     origin_y <= DEFAULT_ORIGIN_Y;
                 end else if (ENABLE_MOUSE && mouse_recenter) begin
@@ -147,18 +150,27 @@ module graph_controller_adapter #(
                     if (recenter_y < MIN_ORIGIN_Y) origin_y <= MIN_ORIGIN_Y;
                     else if (recenter_y > MAX_ORIGIN_Y) origin_y <= MAX_ORIGIN_Y;
                     else origin_y <= recenter_y[5:0];
-                end else if (ENABLE_MOUSE && mouse_zoom_in && (scale_px_per_unit < 8))
-                    scale_px_per_unit <= scale_px_per_unit << 1;
-                else if (ENABLE_MOUSE && mouse_zoom_out && (scale_px_per_unit > 1))
-                    scale_px_per_unit <= scale_px_per_unit >> 1;
+                end else if (ENABLE_MOUSE && mouse_zoom_in) begin
+                    if (zoom_out_shift != 0) zoom_out_shift <= zoom_out_shift - 1'b1;
+                    else if (scale_px_per_unit < 8) scale_px_per_unit <= scale_px_per_unit << 1;
+                end else if (ENABLE_MOUSE && mouse_zoom_out) begin
+                    if (scale_px_per_unit > 1) scale_px_per_unit <= scale_px_per_unit >> 1;
+                    else if (zoom_out_shift < 3) zoom_out_shift <= zoom_out_shift + 1'b1;
+                end
                 else if (sw12_cursor) begin
-                    if (btnL_pressed) cursor_x_q4 <= cursor_x_q4 - ((scale_px_per_unit==1)?16:8);
-                    if (btnR_pressed) cursor_x_q4 <= cursor_x_q4 + ((scale_px_per_unit==1)?16:8);
-                    if (btnU_pressed) cursor_y_q4 <= cursor_y_q4 + ((scale_px_per_unit==1)?16:8);
-                    if (btnD_pressed) cursor_y_q4 <= cursor_y_q4 - ((scale_px_per_unit==1)?16:8);
+                    if (btnL_pressed) cursor_x_q4 <= cursor_x_q4 - ((scale_px_per_unit==1)?(16 << zoom_out_shift):8);
+                    if (btnR_pressed) cursor_x_q4 <= cursor_x_q4 + ((scale_px_per_unit==1)?(16 << zoom_out_shift):8);
+                    if (btnU_pressed) cursor_y_q4 <= cursor_y_q4 + ((scale_px_per_unit==1)?(16 << zoom_out_shift):8);
+                    if (btnD_pressed) cursor_y_q4 <= cursor_y_q4 - ((scale_px_per_unit==1)?(16 << zoom_out_shift):8);
                 end else if (sw13_zoom) begin
-                    if (btnU_pressed && (scale_px_per_unit < 8)) scale_px_per_unit <= scale_px_per_unit << 1;
-                    if (btnD_pressed && (scale_px_per_unit > 1)) scale_px_per_unit <= scale_px_per_unit >> 1;
+                    if (btnU_pressed) begin
+                        if (zoom_out_shift != 0) zoom_out_shift <= zoom_out_shift - 1'b1;
+                        else if (scale_px_per_unit < 8) scale_px_per_unit <= scale_px_per_unit << 1;
+                    end
+                    if (btnD_pressed) begin
+                        if (scale_px_per_unit > 1) scale_px_per_unit <= scale_px_per_unit >> 1;
+                        else if (zoom_out_shift < 3) zoom_out_shift <= zoom_out_shift + 1'b1;
+                    end
                     if (btnL_pressed && (origin_x > MIN_ORIGIN_X)) origin_x <= origin_x - 4;
                     if (btnR_pressed && (origin_x < MAX_ORIGIN_X)) origin_x <= origin_x + 4;
                 end else begin
@@ -179,7 +191,8 @@ module graph_controller_adapter #(
         .clk(clk),.reset(reset),.enable(solve_intersection),
         .graph1_quadratic(graph1_type),.graph2_quadratic(graph2_type),
         .a1(a1),.b1(b1),.c1(c1),.a2(a2),.b2(b2),.c2(c2),
-        .scale(scale_px_per_unit),.origin_x(origin_x),.origin_y(origin_y),
+        .scale(scale_px_per_unit),.zoom_out_shift(zoom_out_shift),
+        .origin_x(origin_x),.origin_y(origin_y),
         .status(quadratic_status),.valid1(quadratic_valid1),.valid2(quadratic_valid2),
         .x1_q4(quadratic_x1),.y1_q4(quadratic_y1),
         .x2_q4(quadratic_x2),.y2_q4(quadratic_y2)

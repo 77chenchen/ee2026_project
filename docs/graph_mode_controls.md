@@ -21,11 +21,12 @@ it before entering a mode again.
 | --- | --- |
 | `BTNL` / `BTNR` | Pan horizontally. |
 | `BTNU` / `BTND` with `SW13=0` | Pan vertically. |
-| `BTNU` / `BTND` with `SW13=1` | Zoom in / out, from 1 to 8 pixels per unit. |
+| `BTNU` / `BTND` with `SW13=1` | Zoom in / out, from 1/8 to 8 pixels per unit. |
 | `SW12=1` | Show X and Y for up to two visible intersections. Lower it to restore the plot. |
 | `SW15=1` | Return to the main menu. |
 
 Graph 1 is green, Graph 2 orange, and visible intersection markers are white.
+The lower-right `S` label shows the scale, such as `S1/8` for the widest view.
 The coordinate page rounds Q4 values to two decimal places. Intersections are
 solved for pairs of lines and/or quadratics; cubic intersections are not
 calculated. Status labels include `PAR`, `SAME`, `OUT`, `NO`, and `ERR`. A

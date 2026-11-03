@@ -30,6 +30,7 @@ module graph_renderer #(
     input  wire signed [15:0] intersection2_x_q4,
     input  wire signed [15:0] intersection2_y_q4,
     input  wire [3:0]  scale_px_per_unit,
+    input  wire [1:0]  zoom_out_shift,
     input  wire [6:0]  origin_x,
     input  wire [5:0]  origin_y,
     input  wire        show_intersections,
@@ -72,11 +73,13 @@ module graph_renderer #(
 
     wire signed [4:0] graph_scale_signed =
         $signed({1'b0, scale_px_per_unit});
+    wire [2:0] coordinate_shift=3'd4+{1'b0,zoom_out_shift};
     wire cache_ready;
     wire [13:0] bounds1,bounds2;
     graph_curve_cache curve_cache(
         .clk(clk),.enable(draw_enable),.screen_x(screen_x),
         .origin_x(origin_x),.origin_y(origin_y),.scale(scale_px_per_unit),
+        .zoom_out_shift(zoom_out_shift),
         .graph1_type(graph1_type),.graph2_type(graph2_type),
         .cubic1(cubic1),.cubic2(cubic2),
         .a1(a1),.b1(b1),.c1(c1),.d1(d1),
@@ -135,6 +138,7 @@ module graph_renderer #(
                 "9": case(row) 0:glyph_row=5'b01110;1:glyph_row=5'b10001;2:glyph_row=5'b10001;3:glyph_row=5'b01111;4:glyph_row=5'b00001;5:glyph_row=5'b00001;6:glyph_row=5'b01110;endcase
                 "-": case(row) 3:glyph_row=5'b01110; default:glyph_row=5'b00000; endcase
                 ".": case(row) 6:glyph_row=5'b00100; default:glyph_row=5'b00000; endcase
+                "/": case(row) 0:glyph_row=5'b00001;1:glyph_row=5'b00010;2:glyph_row=5'b00100;3:glyph_row=5'b00100;4:glyph_row=5'b01000;5:glyph_row=5'b10000;6:glyph_row=5'b10000;endcase
                 default: glyph_row=5'b00000;
             endcase
         end
@@ -248,6 +252,7 @@ module graph_renderer #(
     reg input_pixel;
     reg legend1_pixel;
     reg legend2_pixel;
+    reg zoom_pixel;
 
     always @* begin
         px = screen_x;
@@ -277,15 +282,15 @@ module graph_renderer #(
                        bounds2[13:7]!=7'd127 &&
                        ((py+1) >= bounds2[13:7]) && (py <= (bounds2[6:0]+1));
 
-        marker_x = ox + (intersection_x_scaled >>> 4);
-        marker_y = oy - (intersection_y_scaled >>> 4);
+        marker_x = ox + (intersection_x_scaled >>> coordinate_shift);
+        marker_y = oy - (intersection_y_scaled >>> coordinate_shift);
         marker_pixel = draw_enable && intersection_valid &&
                        (graph_status == STATUS_OK) &&
                        ((((px == marker_x) || (py == marker_y)) &&
                          (px-marker_x <= 3) && (px-marker_x >= -3) &&
                          (py-marker_y <= 3) && (py-marker_y >= -3)));
-        marker2_x = ox + (intersection2_x_scaled >>> 4);
-        marker2_y = oy - (intersection2_y_scaled >>> 4);
+        marker2_x = ox + (intersection2_x_scaled >>> coordinate_shift);
+        marker2_y = oy - (intersection2_y_scaled >>> coordinate_shift);
         marker_pixel = marker_pixel ||
                        (draw_enable && intersection2_valid &&
                         (graph_status == STATUS_OK) &&
@@ -293,8 +298,8 @@ module graph_renderer #(
                           (px-marker2_x <= 3) && (px-marker2_x >= -3) &&
                           (py-marker2_y <= 3) && (py-marker2_y >= -3))));
 
-        cursor_x = ox + (cursor_x_scaled >>> 4);
-        cursor_y = oy - (cursor_y_scaled >>> 4);
+        cursor_x = ox + (cursor_x_scaled >>> coordinate_shift);
+        cursor_y = oy - (cursor_y_scaled >>> coordinate_shift);
         cursor_pixel = draw_enable && cursor_enable &&
                        (((px == cursor_x) && (py-cursor_y <= 4) && (py-cursor_y >= -4)) ||
                         ((py == cursor_y) && (px-cursor_x <= 4) && (px-cursor_x >= -4)));
@@ -402,6 +407,13 @@ module graph_renderer #(
 
         legend1_pixel=INCLUDE_TEXT&&draw_enable&&font_pixel("1",px,py,30,2);
         legend2_pixel=INCLUDE_TEXT&&draw_enable&&(graph_count==2)&&font_pixel("2",px,py,38,2);
+        zoom_pixel=INCLUDE_TEXT&&draw_enable&&
+            (font_pixel("S",px,py,62,55) ||
+             ((zoom_out_shift!=0) &&
+              (font_pixel("1",px,py,72,55) || font_pixel("/",px,py,78,55) ||
+               font_pixel(digit_character(1 << zoom_out_shift),px,py,84,55))) ||
+             ((zoom_out_shift==0) &&
+              font_pixel(digit_character(scale_px_per_unit),px,py,84,55)));
 
         pixel_data = BLACK;
         if (grid_pixel) pixel_data = GRID;
@@ -415,6 +427,7 @@ module graph_renderer #(
         if (title_pixel || action_pixel) pixel_data = YELLOW;
         if (legend1_pixel) pixel_data = GREEN;
         if (legend2_pixel) pixel_data = ORANGE;
+        if (zoom_pixel) pixel_data = CYAN;
         if (draw_enable && status_pixel) pixel_data = RED;
 
         // SW12 opens a full-page readout so both coordinates stay legible on

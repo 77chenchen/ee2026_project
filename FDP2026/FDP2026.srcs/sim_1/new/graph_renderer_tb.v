@@ -17,6 +17,7 @@ module graph_renderer_tb;
     reg signed [15:0] ix=0,iy=0,cursor_x=0,cursor_y=0;
     reg signed [15:0] ix2=0,iy2=0;
     reg [3:0] scale=4;
+    reg [1:0] zoom_out_shift=0;
     reg [6:0] origin_x=48;
     reg [5:0] origin_y=32;
     reg cursor_enable=0;
@@ -39,7 +40,8 @@ module graph_renderer_tb;
         .intersection_x_q4(ix),.intersection_y_q4(iy),
         .intersection2_valid(intersection2_valid),
         .intersection2_x_q4(ix2),.intersection2_y_q4(iy2),
-        .scale_px_per_unit(scale),.origin_x(origin_x),.origin_y(origin_y),
+        .scale_px_per_unit(scale),.zoom_out_shift(zoom_out_shift),
+        .origin_x(origin_x),.origin_y(origin_y),
         .show_intersections(show_intersections),
         .cursor_enable(cursor_enable),.cursor_x_q4(cursor_x),.cursor_y_q4(cursor_y),
         .screen_x(screen_x),.screen_y(screen_y),.pixel_data(pixel_data)
@@ -171,7 +173,44 @@ module graph_renderer_tb;
             $display("FAIL plot restoration=%h",pixel_data);$finish_and_return(1);
         end
 
-        $display("PASS graph renderer linear, quadratic, cubic, zoom-out, markers and coordinates");
+        // At half a pixel per unit, y=x^2 has 32-pixel height at dx=4.
+        graph_count=1;intersection_valid=0;intersection2_valid=0;
+        graph1_type=1;cubic1=0;a1=1;b1=0;c1=0;
+        scale=1;zoom_out_shift=1;origin_x=48;origin_y=32;
+        repeat(2600) @(posedge clk);#1;
+        pixel_index=0*96+52;#1;
+        if(pixel_data!=16'h07E0) begin
+            $display("FAIL deep quadratic zoom=%h",pixel_data);$finish_and_return(1);
+        end
+        // Cubic uses two inverse-scale factors and remains aligned.
+        cubic1=1;graph1_type=0;repeat(2600) @(posedge clk);#1;
+        pixel_index=0*96+50;#1;
+        if(pixel_data!=16'h07E0) begin
+            $display("FAIL deep cubic zoom=%h ready=%b bounds=%h final=%0d work=%0d phase=%0d",
+                     pixel_data,dut.cache_ready,dut.bounds1,
+                     dut.curve_cache.final_value,dut.curve_cache.work,
+                     dut.curve_cache.phase);
+            $finish_and_return(1);
+        end
+        a1=-1;repeat(2600) @(posedge clk);#1;
+        pixel_index=63*96+50;#1;
+        if(pixel_data!=16'h07E0) begin
+            $display("FAIL signed deep cubic zoom=%h",pixel_data);$finish_and_return(1);
+        end
+        // Marker and on-screen scale label use the same 1/8 mapping.
+        cubic1=0;graph1_type=0;zoom_out_shift=3;
+        intersection_valid=1;ix=384;iy=0;
+        repeat(2600) @(posedge clk);#1;
+        pixel_index=32*96+51;#1;
+        if(pixel_data!=16'hFFFF) begin
+            $display("FAIL deep zoom marker=%h",pixel_data);$finish_and_return(1);
+        end
+        pixel_index=57*96+80;#1;
+        if(pixel_data!=16'h07FF) begin
+            $display("FAIL zoom label=%h",pixel_data);$finish_and_return(1);
+        end
+
+        $display("PASS graph renderer curves, deep zoom, markers and coordinates");
         $finish;
     end
 endmodule

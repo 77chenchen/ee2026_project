@@ -8,6 +8,7 @@ module graph_curve_cache(
     input wire [6:0] screen_x,origin_x,
     input wire [5:0] origin_y,
     input wire [3:0] scale,
+    input wire [1:0] zoom_out_shift,
     input wire graph1_type,graph2_type,cubic1,cubic2,
     input wire signed [7:0] a1,b1,c1,d1,a2,b2,c2,d2,
     output reg ready=0,
@@ -20,12 +21,14 @@ module graph_curve_cache(
 
     reg initialized=0;
     reg [3:0] old_scale;
+    reg [1:0] old_zoom_out_shift;
     reg [6:0] old_ox;
     reg [5:0] old_oy;
     reg old_type1,old_type2,old_cubic1,old_cubic2;
     reg signed [7:0] old_a1,old_b1,old_c1,old_d1;
     reg signed [7:0] old_a2,old_b2,old_c2,old_d2;
-    wire changed=old_scale!=scale || old_ox!=origin_x || old_oy!=origin_y ||
+    wire changed=old_scale!=scale || old_zoom_out_shift!=zoom_out_shift ||
+        old_ox!=origin_x || old_oy!=origin_y ||
         old_type1!=graph1_type || old_type2!=graph2_type ||
         old_cubic1!=cubic1 || old_cubic2!=cubic2 ||
         old_a1!=a1 || old_b1!=b1 || old_c1!=c1 || old_d1!=d1 ||
@@ -51,15 +54,20 @@ module graph_curve_cache(
     wire is_quadratic=graph_number?graph2_type:graph1_type;
     reg signed [27:0] work;
     wire signed [36:0] product=work*dx;
+    wire signed [36:0] zoomed_product=product <<< zoom_out_shift;
     // Horner evaluation stays in pixel coordinates: dx is pixels from the
     // graph origin, while scale=2^scale_shift pixels per graph unit.
     // For cubic, work advances A*dx+B*s, then *dx+C*s^2, then *dx+D*s^3;
     // dividing by s^2 yields the final vertical displacement in pixels.
+    // Below one pixel/unit, each Horner stage instead multiplies dx by
+    // 2^zoom_out_shift; the final constant is divided by that same factor.
     wire signed [36:0] term_b=$signed(cb) <<< scale_shift;
     wire signed [36:0] term_c=$signed(cc) <<< double_shift;
     wire signed [36:0] term_d=$signed(cd) <<< triple_shift;
     reg signed [37:0] previous_y;
     wire signed [37:0] final_value =
+        (zoom_out_shift!=0) ?
+            (product + ($signed(is_cubic ? cd : cc) >>> zoom_out_shift)) :
         is_cubic ? ((product+term_d) >>> double_shift) :
         is_quadratic ? ((product+term_c) >>> scale_shift) :
                        (product+($signed(cc) <<< scale_shift));
@@ -75,7 +83,8 @@ module graph_curve_cache(
             initialized<=0;ready<=0;phase<=IDLE;
         end else if (!initialized || changed) begin
             initialized<=1;ready<=0;
-            old_scale<=scale;old_ox<=origin_x;old_oy<=origin_y;
+            old_scale<=scale;old_zoom_out_shift<=zoom_out_shift;
+            old_ox<=origin_x;old_oy<=origin_y;
             old_type1<=graph1_type;old_type2<=graph2_type;
             old_cubic1<=cubic1;old_cubic2<=cubic2;
             old_a1<=a1;old_b1<=b1;old_c1<=c1;old_d1<=d1;
@@ -90,14 +99,16 @@ module graph_curve_cache(
             MUL1: begin
                 if (!is_cubic && !is_quadratic) phase<=STORE;
                 else begin
-                    work<=product+term_b;
+                    work<=(zoom_out_shift!=0) ?
+                        zoomed_product+$signed(cb) : product+term_b;
                     phase<=MUL2;
                 end
             end
             MUL2: begin
-                if (is_quadratic) phase<=STORE;
+                if (!is_cubic && is_quadratic) phase<=STORE;
                 else begin
-                    work<=product+term_c;
+                    work<=(zoom_out_shift!=0) ?
+                        zoomed_product+$signed(cc) : product+term_c;
                     phase<=MUL3;
                 end
             end

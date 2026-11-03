@@ -36,6 +36,7 @@ module graph_mode_integration(
     wire [2:0] state, graph_status;
     wire current_graph, ready, draw;
     wire [3:0] scale_px_per_unit;
+    wire [1:0] zoom_out_shift;
     wire [6:0] origin_x;
     wire [5:0] origin_y;
     wire signed [15:0] cursor_x_q4, cursor_y_q4;
@@ -57,7 +58,8 @@ module graph_mode_integration(
         .a1(a1), .b1(b1), .c1(c1), .d1(d1),
         .a2(a2), .b2(b2), .c2(c2), .d2(d2), .state(state),
         .current_graph(current_graph), .ready(ready), .draw(draw),
-        .scale_px_per_unit(scale_px_per_unit), .origin_x(origin_x),
+        .scale_px_per_unit(scale_px_per_unit), .zoom_out_shift(zoom_out_shift),
+        .origin_x(origin_x),
         .origin_y(origin_y), .cursor_x_q4(cursor_x_q4),
         .cursor_y_q4(cursor_y_q4), .graph_status(graph_status),
         .intersection_valid(intersection_valid),
@@ -81,6 +83,7 @@ module graph_mode_integration(
     reg frame_intersection2_valid;
     reg signed [15:0] frame_ix2,frame_iy2;
     reg [3:0] frame_scale;
+    reg [1:0] frame_zoom_out_shift;
     reg [6:0] frame_origin_x;
     reg [5:0] frame_origin_y;
     reg frame_show_intersections;
@@ -95,6 +98,7 @@ module graph_mode_integration(
             frame_state <= 0; frame_current_graph <= 0; frame_draw <= 0;
             frame_status <= 0; frame_intersection_valid <= 0;
             frame_ix <= 0; frame_iy <= 0; frame_scale <= 4;
+            frame_zoom_out_shift <= 0;
             frame_intersection2_valid<=0;frame_ix2<=0;frame_iy2<=0;
             frame_origin_x <= 48; frame_origin_y <= 32;
             frame_show_intersections <= 1'b0;
@@ -111,6 +115,7 @@ module graph_mode_integration(
             frame_intersection2_valid<=intersection2_valid;
             frame_ix2<=intersection2_x_q4;frame_iy2<=intersection2_y_q4;
             frame_scale <= scale_px_per_unit;
+            frame_zoom_out_shift <= zoom_out_shift;
             frame_origin_x <= origin_x; frame_origin_y <= origin_y;
             frame_show_intersections <= sw12_sync;
         end
@@ -131,7 +136,8 @@ module graph_mode_integration(
         .intersection_x_q4(frame_ix), .intersection_y_q4(frame_iy),
         .intersection2_valid(frame_intersection2_valid),
         .intersection2_x_q4(frame_ix2),.intersection2_y_q4(frame_iy2),
-        .scale_px_per_unit(frame_scale), .origin_x(frame_origin_x),
+        .scale_px_per_unit(frame_scale), .zoom_out_shift(frame_zoom_out_shift),
+        .origin_x(frame_origin_x),
         .origin_y(frame_origin_y), .cursor_enable(1'b0),
         .show_intersections(frame_show_intersections),
         .cursor_x_q4(16'sd0), .cursor_y_q4(16'sd0),

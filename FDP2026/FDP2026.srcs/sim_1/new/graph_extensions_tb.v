@@ -3,6 +3,7 @@ module graph_extensions_tb;
     reg clk=0,reset=1,enable=0,q1=0,q2=1;
     reg signed [7:0] a1=0,b1=0,c1=0,a2=1,b2=0,c2=-1;
     reg [3:0] scale=4;
+    reg [1:0] zoom_out_shift=0;
     reg [6:0] ox=48;
     reg [5:0] oy=32;
     wire [2:0] status;
@@ -13,7 +14,8 @@ module graph_extensions_tb;
         .clk(clk),.reset(reset),.enable(enable),
         .graph1_quadratic(q1),.graph2_quadratic(q2),
         .a1(a1),.b1(b1),.c1(c1),.a2(a2),.b2(b2),.c2(c2),
-        .scale(scale),.origin_x(ox),.origin_y(oy),
+        .scale(scale),.zoom_out_shift(zoom_out_shift),
+        .origin_x(ox),.origin_y(oy),
         .status(status),.valid1(v1),.valid2(v2),
         .x1_q4(x1),.y1_q4(y1),.x2_q4(x2),.y2_q4(y2)
     );

@@ -9,6 +9,7 @@ module graph_quadratic_intersections(
     input wire graph1_quadratic, graph2_quadratic,
     input wire signed [7:0] a1,b1,c1,a2,b2,c2,
     input wire [3:0] scale,
+    input wire [1:0] zoom_out_shift,
     input wire [6:0] origin_x,
     input wire [5:0] origin_y,
     output reg [2:0] status,
@@ -39,11 +40,12 @@ module graph_quadratic_intersections(
     reg signed [37:0] root_squared,quadratic_term,y_calc;
     wire [1:0] scale_shift=(scale==8)?2'd3:(scale==4)?2'd2:
                            (scale==2)?2'd1:2'd0;
+    wire [2:0] coordinate_shift=3'd4+{1'b0,zoom_out_shift};
     wire signed [37:0] extended_root={{19{signed_root[18]}},signed_root};
     wire signed [37:0] pixel_x = $signed({1'b0,origin_x}) +
-                                  ((extended_root <<< scale_shift) >>> 4);
+                                  ((extended_root <<< scale_shift) >>> coordinate_shift);
     wire signed [37:0] pixel_y = $signed({1'b0,origin_y}) -
-                                  ((y_calc <<< scale_shift) >>> 4);
+                                  ((y_calc <<< scale_shift) >>> coordinate_shift);
     wire visible = (signed_root>=-19'sd32768) && (signed_root<=19'sd32767) &&
                    (y_calc>=-38'sd32768) && (y_calc<=38'sd32767) &&
                    (pixel_x>=0) && (pixel_x<=95) &&
@@ -51,12 +53,14 @@ module graph_quadratic_intersections(
     reg signed [7:0] old_a1,old_b1,old_c1,old_a2,old_b2,old_c2;
     reg old_q1,old_q2,old_enable;
     reg [3:0] old_scale;
+    reg [1:0] old_zoom_out_shift;
     reg [6:0] old_ox;
     reg [5:0] old_oy;
     wire changed = old_a1!=a1 || old_b1!=b1 || old_c1!=c1 ||
                    old_a2!=a2 || old_b2!=b2 || old_c2!=c2 ||
                    old_q1!=graph1_quadratic || old_q2!=graph2_quadratic ||
-                   old_scale!=scale || old_ox!=origin_x || old_oy!=origin_y ||
+                   old_scale!=scale || old_zoom_out_shift!=zoom_out_shift ||
+                   old_ox!=origin_x || old_oy!=origin_y ||
                    old_enable!=enable;
     wire signed [8:0] difference_a =
         (graph1_quadratic ? $signed({a1[7],a1}) : 9'sd0) -
@@ -82,7 +86,7 @@ module graph_quadratic_intersections(
             x1_q4<=0; y1_q4<=0; x2_q4<=0; y2_q4<=0;
             old_enable<=0; old_a1<=0;old_b1<=0;old_c1<=0;
             old_a2<=0;old_b2<=0;old_c2<=0;old_q1<=0;old_q2<=0;
-            old_scale<=0;old_ox<=0;old_oy<=0;
+            old_scale<=0;old_zoom_out_shift<=0;old_ox<=0;old_oy<=0;
             aa<=0;bb<=0;cc<=0;discriminant_q8<=0;
             sqrt_value<=0;sqrt_bit<=0;root_total<=0;root_index<=0;
             dividend<=0;quotient<=0;remainder<=0;
@@ -93,7 +97,8 @@ module graph_quadratic_intersections(
             old_a1<=a1;old_b1<=b1;old_c1<=c1;
             old_a2<=a2;old_b2<=b2;old_c2<=c2;
             old_q1<=graph1_quadratic;old_q2<=graph2_quadratic;
-            old_scale<=scale;old_ox<=origin_x;old_oy<=origin_y;
+            old_scale<=scale;old_zoom_out_shift<=zoom_out_shift;
+            old_ox<=origin_x;old_oy<=origin_y;
             aa<=difference_a;bb<=difference_b;cc<=difference_c;
             valid1<=0;valid2<=0;status<=STATUS_OK;
             root_index<=0;
