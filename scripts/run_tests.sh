@@ -16,9 +16,6 @@ run_tb() {
     vvp "$build_dir/$top"
 }
 
-run_tb button_onepulse_tb \
-    "$src/button_onepulse.v" "$sim/button_onepulse_tb.v"
-
 run_tb graph_controller_tb \
     "$oskar_src/graph_controller.v" "$src/graph_cubic_input.v" \
     "$src/graph_quadratic_intersections.v" "$src/graph_controller_adapter.v" \
@@ -26,9 +23,6 @@ run_tb graph_controller_tb \
 
 run_tb graph_extensions_tb \
     "$src/graph_quadratic_intersections.v" "$sim/graph_extensions_tb.v"
-
-run_tb mouse_graph_adapter_tb \
-    "$src/mouse_graph_adapter.v" "$sim/mouse_graph_adapter_tb.v"
 
 run_tb graph_renderer_tb \
     "$src/graph_curve_cache.v" "$src/graph_renderer.v" \
@@ -45,8 +39,7 @@ run_tb integration_tb \
     "$src/clock_hz.v" "$src/debounce.v" \
     "$src/signed_switch_input.v" "$src/check_invalid.v" \
     "$src/check_overflow.v" "$src/calculation_history.v" \
-    "$src/calculator.v" "$src/switch_to_binary.v" \
-    "$src/history_renderer.v" "$src/owerflow_renderer.v" \
+    "$src/calculator.v" "$src/history_renderer.v" \
     "$src/right_angle_triangle.v" "$src/triangle_renderer.v" \
     "$oskar_src/graph_controller.v" "$src/graph_cubic_input.v" \
     "$src/graph_quadratic_intersections.v" "$src/graph_controller_adapter.v" \

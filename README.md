@@ -43,8 +43,8 @@ At zoom 1 or 2, the grid remains at least eight pixels apart so it does not
 cover the curves. A plot cache is rebuilt after coefficients or view settings
 change; rendering resumes from the next complete OLED frame.
 
-The optional PS/2 mouse and coordinate cursor modules remain in the
-repository, but are excluded from the resource-constrained synthesis top.
+The optional PS/2 mouse and coordinate cursor are not part of the active
+project; unused prototype modules were removed from `sources_1/new`.
 
 ## Build and test
 
