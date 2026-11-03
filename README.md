@@ -19,29 +19,65 @@ Graph extensions live in separate adapter, solver and renderer files.
   Cubic intersections are not implemented; cubic graphs are plot-only.
 - Right-angle triangle mode from Hanna's top-level integration.
 
-## Controls
+## How to use the board
 
+Connect the OLED to Pmod JB before powering the Basys3, then program the
+bitstream built from `FDP2026/FDP2026.xpr`. Start with `SW14` and `SW15` down.
 In the main menu, `BTNU`/`BTND` move among Calculator, Graph and Triangle;
-`BTNC` enters the highlighted mode. `SW15` returns to the menu. Buttons are
-debounced and routed only to the active mode. `SW7..SW0` represent a signed
-8-bit two's-complement number: for example `1111_1011` means −5.
+press `BTNC` to enter the highlighted mode. In any mode, raise `SW15` to
+return to the menu, then lower it before entering another mode. Button presses
+are debounced and routed only to the selected mode.
 
-For Graph Mode:
+### Graph
 
-1. At `COUNT`, set `SW0=0` for one graph or `SW0=1` for two, then press `BTNC`.
-2. At `TYPE1` (and `TYPE2` if needed), select line with `SW0=0, SW1=0`,
-   quadratic with `SW0=1, SW1=0`, or cubic with `SW1=1`. Press `BTNC`.
-3. Set each coefficient on `SW7..SW0` and press `BTNC` to save it. A line
-   takes `B,C`; a quadratic takes `A,B,C`; a cubic takes `A,B,C,D`.
-4. At `READY`, lower and then raise `SW14` to draw. In the graph view,
-   `BTNL`/`BTNR` pan horizontally and `BTNU`/`BTND` pan vertically.
-   Holding `SW13` changes the latter buttons to zoom in/out through
-   1, 2, 4 and 8 pixels per unit.
+1. At `COUNT`, set `SW0=0` for one graph or `SW0=1` for two; press `BTNC`.
+2. At `TYPE1` (and later `TYPE2` if you selected two graphs), choose a line
+   with `SW1=0, SW0=0`, a quadratic with `SW1=0, SW0=1`, or a cubic with
+   `SW1=1` (`SW0` is ignored for cubic); press `BTNC`.
+3. For every coefficient shown at the top of the OLED, set `SW7..SW0` to its
+   signed 8-bit two's-complement value and press `BTNC` to save it. For
+   example, `1111_1011` is −5. A line needs `B,C` for `y=Bx+C`; a quadratic
+   needs `A,B,C`; a cubic needs `A,B,C,D`. Complete Graph 2 the same way if
+   requested. The current value is shown on the OLED before saving.
+4. At `READY`, move `SW14` from down to up to draw. Graph 1 is green and
+   Graph 2 orange. Visible linear/quadratic intersections have white crosses;
+   the upper-right status may show `PAR`, `SAME`, `OUT`, or `NO`. Cubic
+   intersections are not calculated.
+5. In the graph view, `BTNL`/`BTNR` pan left/right and `BTNU`/`BTND` pan
+   up/down. With `SW13` up, `BTNU` zooms in and `BTND` zooms out through
+   1, 2, 4 and 8 pixels per graph unit; `BTNL`/`BTNR` still pan horizontally.
+   Lower `SW13` to use up/down for vertical panning again. To enter new
+   coefficients, return to the menu with `SW15` and re-enter Graph.
 
-The OLED labels the current input stage and shows the signed switch value.
-At zoom 1 or 2, the grid remains at least eight pixels apart so it does not
-cover the curves. A plot cache is rebuilt after coefficients or view settings
-change; rendering resumes from the next complete OLED frame.
+The OLED labels each input stage. At zoom 1 or 2, grid lines stay at least
+eight pixels apart. The curve cache rebuilds when coefficients or view
+settings change; the renderer waits for that rebuild to finish before showing
+the curves.
+
+### Calculator
+
+1. Set the first signed number on `SW7..SW0` and press `BTNC`.
+2. Choose an operation: `BTNU` adds, `BTND` subtracts, `BTNL` multiplies,
+   and `BTNR` divides. Press `BTNC` to confirm the operation.
+3. Set the second number on `SW7..SW0` and press `BTNC` to calculate.
+   Division by zero is shown as invalid; results outside the signed 8-bit
+   range are flagged as overflow.
+4. Raise `SW14` on the result screen to start another calculation, then
+   lower it. `SW13` shows the saved history. When selecting either operand,
+   `SW8`, `SW9`, or `SW10` recalls the newest, second-newest, or third-newest
+   saved result, respectively; only existing results within the signed
+   8-bit range can be used as operands.
+
+### Right-angle triangle
+
+1. Press `BTNU` to calculate the hypotenuse from two legs, or `BTND` to
+   calculate a missing leg from the hypotenuse and the other leg. Press
+   `BTNC` to confirm.
+2. Set the first prompted value on `SW6..SW0` and press `BTNC`; repeat for
+   the second value. Inputs are unsigned integers from 0 to 127.
+3. Read the calculated side on the OLED. An impossible leg calculation is
+   marked invalid. Raise `SW14` to reset this mode, then lower it before
+   starting again.
 
 The optional PS/2 mouse and coordinate cursor are not part of the active
 project; unused prototype modules were removed from `sources_1/new`.
