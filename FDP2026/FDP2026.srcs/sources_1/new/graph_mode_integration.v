@@ -18,6 +18,18 @@ module graph_mode_integration(
     signed_switch_input input_synchroniser(
         .clk(CLOCK), .reset(reset), .switches(sw[7:0]), .value(input_value));
 
+    // SW12 selects a separate coordinate page without changing the graph view.
+    reg sw12_meta, sw12_sync;
+    always @(posedge CLOCK) begin
+        if (reset) begin
+            sw12_meta <= 1'b0;
+            sw12_sync <= 1'b0;
+        end else begin
+            sw12_meta <= sw[12];
+            sw12_sync <= sw12_meta;
+        end
+    end
+
     wire [1:0] graph_count;
     wire graph1_type, graph2_type, cubic1, cubic2;
     wire signed [7:0] a1, b1, c1, d1, a2, b2, c2, d2;
@@ -71,6 +83,7 @@ module graph_mode_integration(
     reg [3:0] frame_scale;
     reg [6:0] frame_origin_x;
     reg [5:0] frame_origin_y;
+    reg frame_show_intersections;
 
     always @(posedge CLOCK) begin
         if (reset) begin
@@ -84,6 +97,7 @@ module graph_mode_integration(
             frame_ix <= 0; frame_iy <= 0; frame_scale <= 4;
             frame_intersection2_valid<=0;frame_ix2<=0;frame_iy2<=0;
             frame_origin_x <= 48; frame_origin_y <= 32;
+            frame_show_intersections <= 1'b0;
         end else if (frame_begin) begin
             frame_input <= input_value; frame_graph_count <= graph_count;
             frame_graph1_type <= graph1_type; frame_graph2_type <= graph2_type;
@@ -98,6 +112,7 @@ module graph_mode_integration(
             frame_ix2<=intersection2_x_q4;frame_iy2<=intersection2_y_q4;
             frame_scale <= scale_px_per_unit;
             frame_origin_x <= origin_x; frame_origin_y <= origin_y;
+            frame_show_intersections <= sw12_sync;
         end
     end
 
@@ -118,6 +133,7 @@ module graph_mode_integration(
         .intersection2_x_q4(frame_ix2),.intersection2_y_q4(frame_iy2),
         .scale_px_per_unit(frame_scale), .origin_x(frame_origin_x),
         .origin_y(frame_origin_y), .cursor_enable(1'b0),
+        .show_intersections(frame_show_intersections),
         .cursor_x_q4(16'sd0), .cursor_y_q4(16'sd0),
         .screen_x(unused_screen_x), .screen_y(unused_screen_y),
         .pixel_data(oled_data)

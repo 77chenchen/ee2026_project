@@ -32,6 +32,7 @@ module graph_renderer #(
     input  wire [3:0]  scale_px_per_unit,
     input  wire [6:0]  origin_x,
     input  wire [5:0]  origin_y,
+    input  wire        show_intersections,
     input  wire        cursor_enable,
     input  wire signed [15:0] cursor_x_q4,
     input  wire signed [15:0] cursor_y_q4,
@@ -169,6 +170,45 @@ module graph_renderer #(
                 row_bits = glyph_row(ch, row_number[2:0]);
                 font_pixel = row_bits[4-column];
             end
+        end
+    endfunction
+
+    // The solver uses Q4 coordinates (one sixteenth per least-significant bit).
+    // Round that fractional nibble to two decimal places for the OLED page.
+    function [6:0] fraction_hundredths;
+        input [3:0] fraction;
+        begin
+            case (fraction)
+                4'd0: fraction_hundredths=0;   4'd1: fraction_hundredths=6;
+                4'd2: fraction_hundredths=13;  4'd3: fraction_hundredths=19;
+                4'd4: fraction_hundredths=25;  4'd5: fraction_hundredths=31;
+                4'd6: fraction_hundredths=38;  4'd7: fraction_hundredths=44;
+                4'd8: fraction_hundredths=50;  4'd9: fraction_hundredths=56;
+                4'd10:fraction_hundredths=63;  4'd11:fraction_hundredths=69;
+                4'd12:fraction_hundredths=75;  4'd13:fraction_hundredths=81;
+                4'd14:fraction_hundredths=88;  4'd15:fraction_hundredths=94;
+            endcase
+        end
+    endfunction
+
+    // Visible intersections need at most two integer digits at every zoom.
+    // The fixed-width field is "-01.25" (blank sign for positive values).
+    function q4_coordinate_pixel;
+        input signed [15:0] coordinate;
+        input integer px_in,py_in,left,top;
+        reg [15:0] magnitude;
+        reg [6:0] whole, hundredths;
+        begin
+            magnitude=coordinate[15] ? -coordinate : coordinate;
+            whole=magnitude[10:4];
+            hundredths=fraction_hundredths(magnitude[3:0]);
+            q4_coordinate_pixel=
+                (coordinate[15] && font_pixel("-",px_in,py_in,left,top)) ||
+                font_pixel(digit_character(whole/10),px_in,py_in,left+6,top) ||
+                font_pixel(digit_character(whole%10),px_in,py_in,left+12,top) ||
+                font_pixel(".",px_in,py_in,left+18,top) ||
+                font_pixel(digit_character(hundredths/10),px_in,py_in,left+24,top) ||
+                font_pixel(digit_character(hundredths%10),px_in,py_in,left+30,top);
         end
     endfunction
 
@@ -376,5 +416,40 @@ module graph_renderer #(
         if (legend1_pixel) pixel_data = GREEN;
         if (legend2_pixel) pixel_data = ORANGE;
         if (draw_enable && status_pixel) pixel_data = RED;
+
+        // SW12 opens a full-page readout so both coordinates stay legible on
+        // the 96x64 OLED; lowering it restores the unobstructed curve plot.
+        if (draw_enable && show_intersections) begin
+            pixel_data = BLACK;
+            if (font_pixel("R",px,py,2,2) || font_pixel("O",px,py,8,2) ||
+                font_pixel("O",px,py,14,2) || font_pixel("T",px,py,20,2) ||
+                font_pixel("S",px,py,26,2) ||
+                font_pixel("1",px,py,2,55) || font_pixel("2",px,py,8,55) ||
+                font_pixel("P",px,py,20,55) || font_pixel("L",px,py,26,55) ||
+                font_pixel("O",px,py,32,55) || font_pixel("T",px,py,38,55))
+                pixel_data = YELLOW;
+            if (intersection_valid) begin
+                if (q4_coordinate_pixel(intersection_x_q4,px,py,24,14) ||
+                    q4_coordinate_pixel(intersection_y_q4,px,py,24,22))
+                    pixel_data = WHITE;
+                if (font_pixel("1",px,py,2,14) || font_pixel("X",px,py,12,14) ||
+                    font_pixel("Y",px,py,12,22)) pixel_data = GREEN;
+            end
+            if (intersection2_valid) begin
+                if (q4_coordinate_pixel(intersection2_x_q4,px,py,24,34) ||
+                    q4_coordinate_pixel(intersection2_y_q4,px,py,24,42))
+                    pixel_data = WHITE;
+                if (font_pixel("2",px,py,2,34) || font_pixel("X",px,py,12,34) ||
+                    font_pixel("Y",px,py,12,42)) pixel_data = ORANGE;
+            end
+            if (!intersection_valid && !intersection2_valid &&
+                (font_pixel("N",px,py,14,30) || font_pixel("O",px,py,20,30) ||
+                 font_pixel("R",px,py,32,30) || font_pixel("O",px,py,38,30) ||
+                 font_pixel("O",px,py,44,30) || font_pixel("T",px,py,50,30) ||
+                 font_pixel("D",px,py,62,30) || font_pixel("A",px,py,68,30) ||
+                 font_pixel("T",px,py,74,30) || font_pixel("A",px,py,80,30)))
+                pixel_data = WHITE;
+            if (status_pixel) pixel_data = RED;
+        end
     end
 endmodule

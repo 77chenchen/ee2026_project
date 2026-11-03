@@ -48,6 +48,11 @@ are debounced and routed only to the selected mode.
    1, 2, 4 and 8 pixels per graph unit; `BTNL`/`BTNR` still pan horizontally.
    Lower `SW13` to use up/down for vertical panning again. To enter new
    coefficients, return to the menu with `SW15` and re-enter Graph.
+6. Raise `SW12` while viewing the graph to read the X and Y coordinates of
+   each visible intersection. Values are shown to two decimal places (rounded
+   from the solver's 1/16-unit precision). Lower `SW12` to see the plot again.
+   If no intersection is visible, the page shows `NO ROOT DATA`; the status
+   label distinguishes parallel, identical, no-real-root and off-screen cases.
 
 The OLED labels each input stage. At zoom 1 or 2, grid lines stay at least
 eight pixels apart. The curve cache rebuilds when coefficients or view
@@ -103,7 +108,8 @@ On a machine with Icarus Verilog, run:
 ```
 
 The suite checks controller input, 0/1/2 intersections, signed cubic and
-quadratic pixels at multiple zoom levels, both markers, OLED reset and all
+quadratic pixels at multiple zoom levels, both markers, the coordinate page,
+OLED reset and all
 6144 transmitted pixels, and routing through Hanna's top-level menu.
 
 For **actual FPGA resource and timing verification**, open the checked-in

@@ -20,6 +20,7 @@ module graph_renderer_tb;
     reg [6:0] origin_x=48;
     reg [5:0] origin_y=32;
     reg cursor_enable=0;
+    reg show_intersections=0;
     wire [6:0] screen_x;
     wire [5:0] screen_y;
     wire [15:0] pixel_data;
@@ -39,6 +40,7 @@ module graph_renderer_tb;
         .intersection2_valid(intersection2_valid),
         .intersection2_x_q4(ix2),.intersection2_y_q4(iy2),
         .scale_px_per_unit(scale),.origin_x(origin_x),.origin_y(origin_y),
+        .show_intersections(show_intersections),
         .cursor_enable(cursor_enable),.cursor_x_q4(cursor_x),.cursor_y_q4(cursor_y),
         .screen_x(screen_x),.screen_y(screen_y),.pixel_data(pixel_data)
     );
@@ -138,7 +140,38 @@ module graph_renderer_tb;
             $display("FAIL second marker=%h",pixel_data);$finish_and_return(1);
         end
 
-        $display("PASS graph renderer linear, quadratic, cubic, zoom-out and two markers");
+        // SW12 readout shows signed Q4 coordinates rounded to two decimals.
+        show_intersections=1;
+        ix=-20;iy=8;ix2=16;iy2=-40;
+        pixel_index=17*96+25;#1; // Minus sign of root 1 X=-01.25.
+        if(pixel_data!=16'hFFFF) begin
+            $display("FAIL coordinate minus sign=%h",pixel_data);$finish_and_return(1);
+        end
+        pixel_index=14*96+49;#1; // Fractional tens digit of .25.
+        if(pixel_data!=16'hFFFF) begin
+            $display("FAIL coordinate fraction=%h",pixel_data);$finish_and_return(1);
+        end
+        pixel_index=34*96+3;#1; // Root 2 label uses Graph 2 colour.
+        if(pixel_data!=16'hFD20) begin
+            $display("FAIL second coordinate label=%h",pixel_data);$finish_and_return(1);
+        end
+        pixel_index=32*96+44;#1; // The coordinate page covers the plot.
+        if(pixel_data!=16'h0000) begin
+            $display("FAIL coordinate page background=%h",pixel_data);$finish_and_return(1);
+        end
+        intersection_valid=0;intersection2_valid=0;
+        pixel_index=30*96+14;#1;
+        if(pixel_data!=16'hFFFF) begin
+            $display("FAIL no-visible-root message=%h",pixel_data);$finish_and_return(1);
+        end
+        intersection_valid=1;intersection2_valid=1;
+        show_intersections=0;
+        pixel_index=30*96+43;#1;
+        if(pixel_data!=16'hFFFF) begin
+            $display("FAIL plot restoration=%h",pixel_data);$finish_and_return(1);
+        end
+
+        $display("PASS graph renderer linear, quadratic, cubic, zoom-out, markers and coordinates");
         $finish;
     end
 endmodule

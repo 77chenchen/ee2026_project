@@ -61,6 +61,23 @@ module integration_tb;
         if(!dut.graphnator.controller.draw) begin
             $display("FAIL integrated cubic draw");$finish_and_return(1);
         end
+        // SW12 is synchronized and copied only at an OLED frame boundary.
+        sw[12]=1;settle_switches();
+        force dut.frame_begin=1;@(posedge CLOCK);#1;release dut.frame_begin;
+        if(!dut.graphnator.frame_show_intersections) begin
+            $display("FAIL coordinate page selection");$finish_and_return(1);
+        end
+        force dut.pixel_index=13'd194;#1; // Top-left pixel of ROOTS title.
+        if(dut.oled_data_graph!=16'hFFE0) begin
+            $display("FAIL integrated coordinate title=%h",dut.oled_data_graph);
+            $finish_and_return(1);
+        end
+        release dut.pixel_index;
+        sw[12]=0;settle_switches();
+        force dut.frame_begin=1;@(posedge CLOCK);#1;release dut.frame_begin;
+        if(dut.graphnator.frame_show_intersections) begin
+            $display("FAIL coordinate page close");$finish_and_return(1);
+        end
         sw[15]=1; settle_switches();
         if(dut.choice!=0) begin $display("FAIL graph back"); $finish_and_return(1); end
 
