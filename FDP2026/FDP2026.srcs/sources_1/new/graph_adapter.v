@@ -47,7 +47,7 @@ module graph_adapter #(
     localparam [2:0] NEXT_GRAPH = 3'd5;
     localparam [2:0] VIEW_GRAPH = 3'd7;
     localparam [2:0] STATUS_OK=0, STATUS_PAR=1, STATUS_SAME=2,
-                     STATUS_OUT=3, STATUS_ERR=4;
+                     STATUS_OUT=3, STATUS_ERR=4, STATUS_UNSUPPORTED=6;
     localparam [6:0] DEFAULT_ORIGIN_X=48, MIN_ORIGIN_X=8, MAX_ORIGIN_X=87;
     localparam [5:0] DEFAULT_ORIGIN_Y=32, MIN_ORIGIN_Y=8, MAX_ORIGIN_Y=55;
 
@@ -193,7 +193,9 @@ module graph_adapter #(
         .x1_q4(quadratic_x1),.y1_q4(quadratic_y1),
         .x2_q4(quadratic_x2),.y2_q4(quadratic_y2)
     );
-    assign graph_status=solve_intersection?quadratic_status:STATUS_OK;
+    assign graph_status=solve_intersection ? quadratic_status :
+                        ((graph_count==2) && (cubic1 || cubic2)) ?
+                        STATUS_UNSUPPORTED : STATUS_OK;
     assign intersection_valid=solve_intersection && quadratic_valid1;
     assign intersection_x_q4=quadratic_x1;
     assign intersection_y_q4=quadratic_y1;

@@ -284,6 +284,10 @@ module graph_controller_tb;
         if(!draw||state!=3'd7) begin
             $display("FAIL second cubic draw state=%0d",state);$finish_and_return(1);
         end
+        if(status!=6 || intersection_valid) begin
+            $display("FAIL unsupported cubic intersection status=%0d valid=%0d",
+                     status,intersection_valid);$finish_and_return(1);
+        end
 
         $display("PASS graph controller, legacy intersection, cubic input and view controls");
         $finish;

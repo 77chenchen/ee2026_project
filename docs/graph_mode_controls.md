@@ -28,6 +28,8 @@ it before entering a mode again.
 Graph 1 is green, Graph 2 orange, and visible intersection markers are white.
 The lower-right `S` label shows the scale, such as `S1/8` for the widest view.
 The coordinate page rounds Q4 values to two decimal places. Intersections are
-solved for pairs of lines and/or quadratics; cubic intersections are not
-calculated. Status labels include `PAR`, `SAME`, `OUT`, `NO`, and `ERR`. A
-coordinate is shown only when its intersection marker is visible on the OLED.
+solved for pairs of lines and/or quadratics. When either graph is cubic, the
+plot shows `UNSUP` and the coordinate page says `NOT SUPPORTED`. One graph
+shows `NEED 2` on the coordinate page. Other status labels include `PAR`,
+`SAME`, `OUT`, `NO`, and `ERR`. A coordinate is shown only when its
+intersection marker is visible on the OLED.

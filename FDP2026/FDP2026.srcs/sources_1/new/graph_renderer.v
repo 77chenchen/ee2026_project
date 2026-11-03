@@ -57,6 +57,7 @@ module graph_renderer #(
     localparam [2:0] STATUS_OUT  = 3'd3;
     localparam [2:0] STATUS_ERR  = 3'd4;
     localparam [2:0] STATUS_NONE = 3'd5;
+    localparam [2:0] STATUS_UNSUPPORTED = 3'd6;
 
     localparam [15:0] BLACK  = 16'h0000;
     localparam [15:0] GRID   = 16'h2104;
@@ -401,6 +402,10 @@ module graph_renderer #(
                 STATUS_OUT: status_pixel=font_pixel("O",px,py,72,2)||font_pixel("U",px,py,78,2)||font_pixel("T",px,py,84,2);
                 STATUS_ERR: status_pixel=font_pixel("E",px,py,72,2)||font_pixel("R",px,py,78,2)||font_pixel("R",px,py,84,2);
                 STATUS_NONE:status_pixel=font_pixel("N",px,py,72,2)||font_pixel("O",px,py,78,2);
+                STATUS_UNSUPPORTED:status_pixel=
+                    font_pixel("U",px,py,60,2)||font_pixel("N",px,py,66,2)||
+                    font_pixel("S",px,py,72,2)||font_pixel("U",px,py,78,2)||
+                    font_pixel("P",px,py,84,2);
                 default: status_pixel=1'b0;
             endcase
         end
@@ -455,7 +460,22 @@ module graph_renderer #(
                 if (font_pixel("2",px,py,2,34) || font_pixel("X",px,py,12,34) ||
                     font_pixel("Y",px,py,12,42)) pixel_data = ORANGE;
             end
-            if (!intersection_valid && !intersection2_valid &&
+            if (graph_count!=2 &&
+                (font_pixel("N",px,py,24,30) || font_pixel("E",px,py,30,30) ||
+                 font_pixel("E",px,py,36,30) || font_pixel("D",px,py,42,30) ||
+                 font_pixel("2",px,py,54,30)))
+                pixel_data = WHITE;
+            else if (graph_status==STATUS_UNSUPPORTED &&
+                (font_pixel("N",px,py,36,22) || font_pixel("O",px,py,42,22) ||
+                 font_pixel("T",px,py,48,22) ||
+                 font_pixel("S",px,py,20,32) || font_pixel("U",px,py,26,32) ||
+                 font_pixel("P",px,py,32,32) || font_pixel("P",px,py,38,32) ||
+                 font_pixel("O",px,py,44,32) || font_pixel("R",px,py,50,32) ||
+                 font_pixel("T",px,py,56,32) || font_pixel("E",px,py,62,32) ||
+                 font_pixel("D",px,py,68,32)))
+                pixel_data = RED;
+            else if (graph_count==2 && graph_status!=STATUS_UNSUPPORTED &&
+                !intersection_valid && !intersection2_valid &&
                 (font_pixel("N",px,py,14,30) || font_pixel("O",px,py,20,30) ||
                  font_pixel("R",px,py,32,30) || font_pixel("O",px,py,38,30) ||
                  font_pixel("O",px,py,44,30) || font_pixel("T",px,py,50,30) ||

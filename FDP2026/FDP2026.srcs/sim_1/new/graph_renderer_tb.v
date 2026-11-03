@@ -130,7 +130,7 @@ module graph_renderer_tb;
             $display("FAIL full quadratic zoom scale=%h",pixel_data);$finish_and_return(1);
         end
         // Both independent intersection positions are rendered.
-        cubic1=0;intersection_valid=1;intersection2_valid=1;
+        graph_count=2;cubic1=0;intersection_valid=1;intersection2_valid=1;
         ix=-16;iy=0;ix2=16;iy2=0;scale=4;
         repeat(2600) @(posedge clk);#1;
         pixel_index=32*96+44;#1;
@@ -166,6 +166,28 @@ module graph_renderer_tb;
         if(pixel_data!=16'hFFFF) begin
             $display("FAIL no-visible-root message=%h",pixel_data);$finish_and_return(1);
         end
+        status=6;pixel_index=22*96+36;#1;
+        if(pixel_data!=16'hF800) begin
+            $display("FAIL unsupported-coordinate message=%h",pixel_data);
+            $finish_and_return(1);
+        end
+        pixel_index=30*96+14;#1;
+        if(pixel_data!=16'h0000) begin
+            $display("FAIL stale no-root message=%h",pixel_data);
+            $finish_and_return(1);
+        end
+        show_intersections=0;pixel_index=2*96+60;#1;
+        if(pixel_data!=16'hF800) begin
+            $display("FAIL unsupported plot badge=%h",pixel_data);
+            $finish_and_return(1);
+        end
+        status=0;show_intersections=1;graph_count=1;
+        pixel_index=30*96+24;#1;
+        if(pixel_data!=16'hFFFF) begin
+            $display("FAIL need-two-graphs message=%h",pixel_data);
+            $finish_and_return(1);
+        end
+        graph_count=2;
         intersection_valid=1;intersection2_valid=1;
         show_intersections=0;
         pixel_index=30*96+43;#1;

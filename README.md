@@ -41,8 +41,9 @@ are debounced and routed only to the selected mode.
    requested. The current value is shown on the OLED before saving.
 4. At `READY`, move `SW14` from down to up to draw. Graph 1 is green and
    Graph 2 orange. Visible linear/quadratic intersections have white crosses;
-   the upper-right status may show `PAR`, `SAME`, `OUT`, or `NO`. Cubic
-   intersections are not calculated.
+   the upper-right status may show `PAR`, `SAME`, `OUT`, or `NO`. If either
+   graph is cubic, it shows `UNSUP` because cubic intersections are not
+   calculated.
 5. In the graph view, `BTNL`/`BTNR` pan left/right and `BTNU`/`BTND` pan
    up/down. With `SW13` up, `BTNU` zooms in and `BTND` zooms out through
    1/8, 1/4, 1/2, 1, 2, 4 and 8 pixels per graph unit; `BTNL`/`BTNR` still
@@ -53,8 +54,10 @@ are debounced and routed only to the selected mode.
 6. Raise `SW12` while viewing the graph to read the X and Y coordinates of
    each visible intersection. Values are shown to two decimal places (rounded
    from the solver's 1/16-unit precision). Lower `SW12` to see the plot again.
-   If no intersection is visible, the page shows `NO ROOT DATA`; the status
-   label distinguishes parallel, identical, no-real-root and off-screen cases.
+   For a cubic pair the page says `NOT SUPPORTED`; with only one graph it says
+   `NEED 2`. Otherwise, if no intersection is visible, it shows
+   `NO ROOT DATA` with a status for parallel, identical, no-real-root, or
+   off-screen cases.
 
 The OLED labels each input stage. At scales below 4, grid lines stay at least
 eight pixels apart. The curve cache rebuilds when coefficients or view
